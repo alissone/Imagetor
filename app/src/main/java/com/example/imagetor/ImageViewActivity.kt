@@ -9,7 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.example.imagetor.databinding.SecondActivityBinding
 
-class SecondActivity : AppCompatActivity() {
+class ImageViewActivity : AppCompatActivity() {
 
     private lateinit var binding: SecondActivityBinding
 
@@ -23,7 +23,7 @@ class SecondActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.second_activity)
+        setContentView(R.layout.image_view_activity)
         enableEdgeToEdge()
         binding = SecondActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
