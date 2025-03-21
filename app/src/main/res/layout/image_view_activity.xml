@@ -12,6 +12,20 @@
         android:max="200"
         android:progress="100"/>
 
+    <SeekBar
+        android:id="@+id/saturationSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="100"/>
+
+    <SeekBar
+        android:id="@+id/contrastSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="100"/>
+
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="match_parent"

@@ -18,9 +18,8 @@ class ImageViewActivity : AppCompatActivity() {
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data: Intent? = result.data
-            val imageUri: Uri? = data?.data
-            binding.imageView.setImageURI(imageUri)
-
+            val selectedImageUri: Uri? = data?.data
+            binding.imageView.setImageURI(selectedImageUri)
             imageAdjuster.renderImage()
         }
     }
@@ -29,7 +28,6 @@ class ImageViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ImageViewActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        enableEdgeToEdge()
 
         imageAdjuster = ImageAdjuster(binding.imageView)
 
@@ -48,5 +46,22 @@ class ImageViewActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        binding.saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                imageAdjuster.setSaturation(progress / 100f)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                imageAdjuster.setContrast(progress / 100f)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
     }
 }
