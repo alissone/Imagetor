@@ -1,3 +1,4 @@
+// ImageViewActivity.kt
 package com.example.imagetor
 
 import android.app.Activity
@@ -65,3 +66,4 @@ class ImageViewActivity : AppCompatActivity() {
         })
     }
 }
+

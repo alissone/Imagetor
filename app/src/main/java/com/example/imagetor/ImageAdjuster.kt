@@ -1,7 +1,12 @@
 package com.example.imagetor
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorFilter
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
 import android.widget.ImageView
 
 
@@ -32,8 +37,22 @@ class ImageAdjuster(private val imageView: ImageView) {
         renderImage()
     }
 
-    // Apply all current adjustments to the image
-    fun renderImage() {
+    fun applyColorFilterToBitmap(original: Bitmap, filter: ColorFilter): Bitmap {
+        val result = Bitmap.createBitmap(original.width, original.height, Bitmap.Config.RGB_565)
+        val canvas = Canvas(result)
+        val paint = Paint().apply {
+            colorFilter = filter
+        }
+        canvas.drawBitmap(original, 0f, 0f, paint)
+        return result
+    }
+
+    private fun generateColorFilter(
+        brightness: Int,
+        saturation: Float,
+        contrast: Float
+    ): ColorFilter {
+        // Implement image adjustment logic here
         val brightness = (brightnessLevel - 100).toFloat() / 100
 
         val colorMatrix = ColorMatrix()
@@ -61,8 +80,10 @@ class ImageAdjuster(private val imageView: ImageView) {
             colorMatrix.postConcat(contrastMatrix)
         }
 
-        // Apply the filter to the ImageView
-        val filter = ColorMatrixColorFilter(colorMatrix)
-        imageView.colorFilter = filter
+        return ColorMatrixColorFilter(colorMatrix)
+    }
+
+    fun renderImage() {
+        imageView.colorFilter = generateColorFilter(brightnessLevel,contrastLevel,saturationLevel)
     }
 }
