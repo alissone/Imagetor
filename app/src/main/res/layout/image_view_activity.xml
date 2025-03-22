@@ -64,5 +64,14 @@
             android:layout_weight="1"
             android:text="Pick Image"
             android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/saveImageButton"
+            android:layout_width="0dp"
+            android:layout_marginBottom="120dp"
+            android:layout_weight="1"
+            android:text="Save Image"
+            android:layout_height="wrap_content"/>
     </LinearLayout>
+
 </LinearLayout>

@@ -3,13 +3,20 @@ package com.example.imagetor
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.StrictMode
+import android.os.StrictMode.VmPolicy
+import android.widget.ImageView
 import android.widget.SeekBar
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.example.imagetor.databinding.ImageViewActivityBinding
+import java.io.File
+import java.io.FileOutputStream
+
 
 class ImageViewActivity : AppCompatActivity() {
 
@@ -38,6 +45,10 @@ class ImageViewActivity : AppCompatActivity() {
             pickImageLauncher.launch(intent)
         }
 
+        binding.saveImageButton.setOnClickListener {
+            saveAndShareImage(binding.imageView)
+        }
+
         binding.brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 imageAdjuster.setBrightness(progress)
@@ -64,6 +75,30 @@ class ImageViewActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+    }
+
+    private fun saveAndShareImage(imageView: ImageView) {
+        val bitmap = (imageView.drawable as BitmapDrawable).bitmap
+        val adjustedBitmap = imageAdjuster.applyColorFilterToBitmap(bitmap, imageView.colorFilter)
+
+        // Save the adjusted bitmap to a temporary file
+        val tempFile = File.createTempFile("adjusted_image", ".png", cacheDir)
+        try {
+            FileOutputStream(tempFile).use { out ->
+                adjustedBitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
+            }
+
+            val builder = VmPolicy.Builder()
+            StrictMode.setVmPolicy(builder.build())
+            val shareIntent: Intent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_STREAM, Uri.fromFile(tempFile))
+                type = "image/png"
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share Image"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
