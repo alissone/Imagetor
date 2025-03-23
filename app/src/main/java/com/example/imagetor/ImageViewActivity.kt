@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.SeekBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import com.example.imagetor.databinding.ImageViewActivityBinding
 import java.io.File
 import java.io.FileOutputStream
@@ -88,12 +89,14 @@ class ImageViewActivity : AppCompatActivity() {
                 adjustedBitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
             }
 
-            val builder = VmPolicy.Builder()
-            StrictMode.setVmPolicy(builder.build())
+            // Use FileProvider to get a content URI for the file
+            val photoURI: Uri = FileProvider.getUriForFile(this, "${Constants.APPLICATION_ID}.fileprovider", tempFile)
+
             val shareIntent: Intent = Intent().apply {
                 action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_STREAM, Uri.fromFile(tempFile))
+                putExtra(Intent.EXTRA_STREAM, photoURI)
                 type = "image/png"
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION // Grant temporary read permission to the content URI
             }
             startActivity(Intent.createChooser(shareIntent, "Share Image"))
         } catch (e: Exception) {
