@@ -15,6 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.example.imagetor.databinding.ImageViewActivityBinding
+import jp.co.cyberagent.android.gpuimage.GPUImage
+import jp.co.cyberagent.android.gpuimage.GPUImageView
 import java.io.File
 import java.io.FileOutputStream
 
@@ -24,11 +26,19 @@ class ImageViewActivity : AppCompatActivity() {
     private lateinit var binding: ImageViewActivityBinding
     private lateinit var imageAdjuster: ImageAdjuster
 
+    private lateinit var gpuImage: GPUImage
+
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data: Intent? = result.data
             val selectedImageUri: Uri? = data?.data
             binding.imageView.setImageURI(selectedImageUri)
+            imageAdjuster.setMainImageURI(selectedImageUri)
+
+            gpuImage.setImage(selectedImageUri) // this loads image on the current thread, should be run in a thread
+//            gpuImage.setFilter(GPUImageSepiaFilter())
+
+            imageAdjuster.resetAdjustments()
             imageAdjuster.renderImage()
         }
     }
@@ -39,6 +49,9 @@ class ImageViewActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         imageAdjuster = ImageAdjuster(binding.imageView)
+
+        gpuImage = GPUImage(this)
+//        gpuImage.setGLSurfaceView(findViewById<GLSurfaceView>(R.id.surfaceView))
 
         binding.pickImageButton.setOnClickListener {
             val intent = Intent(Intent.ACTION_PICK)
@@ -71,6 +84,15 @@ class ImageViewActivity : AppCompatActivity() {
         binding.contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 imageAdjuster.setContrast(progress / 100f)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                imageAdjuster.setHue(progress)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}

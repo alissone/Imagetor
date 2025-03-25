@@ -44,6 +44,46 @@
         android:max="200"
         android:progress="100"/>
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hue"
+        android:layout_gravity="center_horizontal"/>
+
+    <SeekBar
+        android:id="@+id/hueSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="100"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Shadow"
+        android:layout_gravity="center_horizontal"/>
+
+    <SeekBar
+        android:id="@+id/shadowSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="100"/>
+
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="White Balance"
+        android:layout_gravity="center_horizontal"/>
+
+    <SeekBar
+        android:id="@+id/whiteBalanceSeekBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="100"/>
+
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="match_parent"
