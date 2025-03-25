@@ -5,10 +5,13 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Toast
+import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import jp.co.cyberagent.android.gpuimage.GPUImage
@@ -19,6 +22,8 @@ import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var toggleButton: ToggleButton
+    private lateinit var imageContainer: FrameLayout
     private lateinit var originalImageView: ImageView
     private lateinit var modifiedImageView: ImageView
     private lateinit var hueSeekBar: SeekBar
@@ -36,14 +41,24 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_hue_modification)
 
+        toggleButton = findViewById(R.id.toggleButton)
         originalImageView = findViewById(R.id.originalImageView)
         modifiedImageView = findViewById(R.id.modifiedImageView)
         hueSeekBar = findViewById(R.id.hueSeekBar)
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
 
+        originalImageView.visibility = View.GONE
+
         selectImageButton.setOnClickListener {
             openImagePicker()
+        }
+        toggleButton.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                showOriginalImageOnly()
+            } else {
+                showModifiedImageOnly()
+            }
         }
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
@@ -136,6 +151,15 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show()
         }
+    }
+    private fun showOriginalImageOnly() {
+        originalImageView.visibility = View.VISIBLE
+        modifiedImageView.visibility = View.GONE
+    }
+
+    private fun showModifiedImageOnly() {
+        originalImageView.visibility = View.GONE
+        modifiedImageView.visibility = View.VISIBLE
     }
 }
 
