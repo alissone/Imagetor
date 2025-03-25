@@ -17,13 +17,13 @@ import jp.co.cyberagent.android.gpuimage.filter.GPUImageHueFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageWhiteBalanceFilter
 
 
-class ImageAdjuster(private val imageView: ImageView) {
+class ImageAdjuster(private val imageView: ImageView, mainImageView: GPUImageView) {
     private var brightnessLevel: Int = 100
     private var saturationLevel: Float = 1f
     private var contrastLevel: Float = 1f
 
 
-    private lateinit var mainImageView: GPUImageView
+//    private lateinit var mainImageView: GPUImageView
 
     // The default values
     private var saturationOpacity: Float = 50.0f
@@ -142,6 +142,7 @@ class ImageAdjuster(private val imageView: ImageView) {
         imageView.colorFilter = generateColorFilter(brightnessLevel,contrastLevel,saturationLevel)
 //        mainImageView.setFilter(setAdjustment(hueOpacity, saturationOpacity, shadowOpacity, warmOpacity));
     }
+
 
     fun setMainImageURI(selectedImageUri: Uri?) {
 //        mainImageView.setImage(imageView.drawable.toBitmap())

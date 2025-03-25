@@ -26,10 +26,10 @@ class ImageViewActivity : AppCompatActivity() {
     private lateinit var binding: ImageViewActivityBinding
     private lateinit var imageAdjuster: ImageAdjuster
 
-    private lateinit var gpuImage: GPUImage
+    private lateinit var gpuImage : GPUImageView
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == RESULT_OK) {
             val data: Intent? = result.data
             val selectedImageUri: Uri? = data?.data
             binding.imageView.setImageURI(selectedImageUri)
@@ -47,10 +47,13 @@ class ImageViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ImageViewActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        gpuImage = GPUImageView(applicationContext)
 
-        imageAdjuster = ImageAdjuster(binding.imageView)
+        imageAdjuster = ImageAdjuster(
+            binding.imageView,
+            gpuImage
+        )
 
-        gpuImage = GPUImage(this)
 //        gpuImage.setGLSurfaceView(findViewById<GLSurfaceView>(R.id.surfaceView))
 
         binding.pickImageButton.setOnClickListener {
