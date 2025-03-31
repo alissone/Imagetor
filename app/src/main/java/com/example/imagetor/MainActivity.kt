@@ -15,7 +15,12 @@ import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import jp.co.cyberagent.android.gpuimage.GPUImage
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageBrightnessFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageContrastFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilterGroup
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageHueFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageSaturationFilter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -32,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
     private var originalBitmap: Bitmap? = null
     private var modifiedBitmap: Bitmap? = null
+    lateinit var gpuImage: GPUImage
 
     companion object {
         private const val PICK_IMAGE_REQUEST = 1
@@ -48,6 +54,13 @@ class MainActivity : AppCompatActivity() {
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
 
+
+        gpuImage = GPUImage(this)
+
+        val brightnessSeekBar = findViewById<SeekBar>(R.id.brightnessSeekBar)
+        val contrastSeekBar = findViewById<SeekBar>(R.id.contrastSeekBar)
+        val saturationSeekBar = findViewById<SeekBar>(R.id.saturationSeekBar)
+
         originalImageView.visibility = View.GONE
 
         selectImageButton.setOnClickListener {
@@ -62,7 +75,39 @@ class MainActivity : AppCompatActivity() {
         }
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
-        hueSeekBar.max = 360 // Hue goes from 0 to 360 degrees
+        brightnessSeekBar.max = 200
+        contrastSeekBar.max = 200
+        saturationSeekBar.max = 200
+        hueSeekBar.max = 360
+
+
+        brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                applyBrightnessFilter(progress - 100)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                applyContrastFilter(progress / 100f)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                applySaturationFilter(progress / 100f)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 originalBitmap?.let { bitmap ->
@@ -111,11 +156,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateImage() {
+//        modifiedBitmap = originalBitmap?.let { gpuImage.bitmapWithFilterApplied(it) }
+        // Update your ImageView with the modifiedBitmap
+    }
+
     private fun applyHueFilter(bitmap: Bitmap, hueValue: Float): Bitmap {
-        val gpuImage = GPUImage(this)
         val hueFilter = GPUImageHueFilter(hueValue)
         gpuImage.setFilter(hueFilter)
         return gpuImage.getBitmapWithFilterApplied(bitmap)
+    }
+
+    private fun applyBrightnessFilter(brightness: Int) {
+        gpuImage.setFilter(GPUImageBrightnessFilter(brightness / 100f))
+        updateImage()
+    }
+
+    private fun applyContrastFilter(contrast: Float) {
+        gpuImage.setFilter(GPUImageContrastFilter(contrast))
+        updateImage()
+    }
+
+    private fun applySaturationFilter(saturation: Float) {
+        gpuImage.setFilter(GPUImageSaturationFilter(saturation))
+        updateImage()
+    }
+
+    private fun applyHueFilter(hue: Float) {
+        gpuImage.setFilter(GPUImageHueFilter(hue))
+        updateImage()
+    }
+
+
+    private fun applyFilters(filters: Array<GPUImageFilter>) {
+        val filterGroup = GPUImageFilterGroup()
+        filters.forEach { filterGroup.addFilter(it) }
+        gpuImage.setFilter(filterGroup)
+        updateImage()
     }
 
     private fun saveImage(bitmap: Bitmap) {
