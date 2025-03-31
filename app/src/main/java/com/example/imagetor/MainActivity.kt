@@ -39,6 +39,15 @@ class MainActivity : AppCompatActivity() {
     private var modifiedBitmap: Bitmap? = null
     lateinit var gpuImage: GPUImage
 
+
+    private val filterAmounts = mapOf(
+        "Brightness" to 0.0f,
+        "Contrast" to 0.0f,
+        "Saturation" to 0.0f,
+        "Hue" to 0.0f
+    )
+
+
     companion object {
         private const val PICK_IMAGE_REQUEST = 1
     }
@@ -156,10 +165,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateImage() {
-//        modifiedBitmap = originalBitmap?.let { gpuImage.bitmapWithFilterApplied(it) }
-        // Update your ImageView with the modifiedBitmap
-    }
+//    private fun updateImage() {
+////        modifiedBitmap = originalBitmap?.let { gpuImage.bitmapWithFilterApplied(it) }
+//        // Update your ImageView with the modifiedBitmap
+//    }
 
     private fun applyHueFilter(bitmap: Bitmap, hueValue: Float): Bitmap {
         val hueFilter = GPUImageHueFilter(hueValue)
@@ -192,9 +201,30 @@ class MainActivity : AppCompatActivity() {
         val filterGroup = GPUImageFilterGroup()
         filters.forEach { filterGroup.addFilter(it) }
         gpuImage.setFilter(filterGroup)
-        updateImage()
     }
 
+
+    private fun updateImage() {
+        val filters = mutableListOf<GPUImageFilter>()
+
+        if (filterAmounts["Brightness"] != 0.0f) {
+            filters.add(GPUImageBrightnessFilter(filterAmounts["Brightness"]!!))
+        }
+
+        if (filterAmounts["Contrast"] != 0.0f) {
+            filters.add(GPUImageContrastFilter(filterAmounts["Contrast"]!!))
+        }
+
+        if (filterAmounts["Saturation"] != 0.0f) {
+            filters.add(GPUImageSaturationFilter(filterAmounts["Saturation"]!!))
+        }
+
+        if (filterAmounts["Hue"] != 0.0f) {
+            filters.add(GPUImageHueFilter(filterAmounts["Hue"]!!))
+        }
+
+        applyFilters(filters.toTypedArray())
+    }
     private fun saveImage(bitmap: Bitmap) {
         try {
             // Create a file in the external storage
