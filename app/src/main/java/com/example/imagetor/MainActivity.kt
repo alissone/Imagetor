@@ -21,12 +21,13 @@ import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilterGroup
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageHueFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageSaturationFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageWhiteBalanceFilter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
 
-enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE }
+enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE }
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,7 +48,9 @@ class MainActivity : AppCompatActivity() {
         FilterType.BRIGHTNESS to 0.0f,
         FilterType.CONTRAST to 0.0f,
         FilterType.SATURATION to 0.0f,
-        FilterType.HUE to 0.0f
+        FilterType.HUE to 0.0f,
+        FilterType.SHADOW to 0.5f,
+        FilterType.WHITE_BALANCE to 0.5f
     )
 
 
@@ -118,6 +121,17 @@ class MainActivity : AppCompatActivity() {
 
             if (filterAmounts[FilterType.HUE] != 0.0f) {
                 filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
+            }
+
+
+            if (filterAmounts[FilterType.SHADOW] != 0.5f) { // Assuming 50 is the neutral value
+                val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 50).toFloat() / 100 * 2
+                filters.add(GPUImageContrastFilter(1 + shadowValue))
+            }
+
+            if (filterAmounts[FilterType.WHITE_BALANCE] != 0.5f) { // Assuming 50 is the neutral value
+                val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 50).toFloat() / 100 * 2
+                filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
             }
 
             applyFilters(filters.toTypedArray())
