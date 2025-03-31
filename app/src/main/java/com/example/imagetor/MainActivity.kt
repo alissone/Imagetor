@@ -25,6 +25,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
+
+enum class SeekBarType { BRIGHTNESS, CONTRAST, SATURATION, HUE }
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var toggleButton: ToggleButton
@@ -84,45 +87,52 @@ class MainActivity : AppCompatActivity() {
         }
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
-        brightnessSeekBar.max = 200
-        contrastSeekBar.max = 200
-        saturationSeekBar.max = 200
-        hueSeekBar.max = 360
-
+        fun processBitmap(type: SeekBarType, originalBitmap: Bitmap?, progress: Float) {
+            originalBitmap?.let { bitmap ->
+                if (type == SeekBarType.BRIGHTNESS) {
+                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+                }else if (type == SeekBarType.HUE) {
+                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+                }else if (type == SeekBarType.CONTRAST) {
+                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+                }else if (type == SeekBarType.SATURATION) {
+                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+                }
+            }
+        }
 
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                applyBrightnessFilter(progress - 100)
+              processBitmap(SeekBarType.BRIGHTNESS, originalBitmap, progress.toFloat())
             }
 
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
         contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                applyContrastFilter(progress / 100f)
+                processBitmap(SeekBarType.CONTRAST, originalBitmap, progress.toFloat())
             }
-
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
         saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                applySaturationFilter(progress / 100f)
+                processBitmap(SeekBarType.SATURATION, originalBitmap, progress.toFloat())
             }
-
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
         hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                originalBitmap?.let { bitmap ->
-                    modifiedBitmap = applyHueFilter(bitmap, progress.toFloat())
-                    modifiedImageView.setImageBitmap(modifiedBitmap)
-                }
+                processBitmap(SeekBarType.HUE, originalBitmap, progress.toFloat())
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
