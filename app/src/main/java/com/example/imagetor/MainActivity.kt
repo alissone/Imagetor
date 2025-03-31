@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
 //              processBitmap(SeekBarType.BRIGHTNESS, originalBitmap, progress.toFloat())
-                filterAmounts[FilterType.BRIGHTNESS] = progress.toFloat()
+                filterAmounts[FilterType.BRIGHTNESS] = (progress.toFloat() / 100) - 1
                 processBitmap()
             }
 
@@ -138,7 +138,7 @@ class MainActivity : AppCompatActivity() {
 
         contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.CONTRAST] = progress.toFloat()
+                filterAmounts[FilterType.CONTRAST] = (progress.toFloat() / 100) - 1
                 processBitmap()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
