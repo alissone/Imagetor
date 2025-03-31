@@ -26,7 +26,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 
-enum class SeekBarType { BRIGHTNESS, CONTRAST, SATURATION, HUE }
+enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE }
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,11 +43,11 @@ class MainActivity : AppCompatActivity() {
     lateinit var gpuImage: GPUImage
 
 
-    private val filterAmounts = mapOf(
-        "Brightness" to 0.0f,
-        "Contrast" to 0.0f,
-        "Saturation" to 0.0f,
-        "Hue" to 0.0f
+    private var filterAmounts = mutableMapOf(
+        FilterType.BRIGHTNESS to 0.0f,
+        FilterType.CONTRAST to 0.0f,
+        FilterType.SATURATION to 0.0f,
+        FilterType.HUE to 0.0f
     )
 
 
@@ -87,23 +87,47 @@ class MainActivity : AppCompatActivity() {
         }
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
-        fun processBitmap(type: SeekBarType, originalBitmap: Bitmap?, progress: Float) {
-            originalBitmap?.let { bitmap ->
-                if (type == SeekBarType.BRIGHTNESS) {
-                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-                }else if (type == SeekBarType.HUE) {
-                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-                }else if (type == SeekBarType.CONTRAST) {
-                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-                }else if (type == SeekBarType.SATURATION) {
-                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-                }
+//        fun processBitmap(type: SeekBarType, originalBitmap: Bitmap?, progress: Float) {
+//            originalBitmap?.let { bitmap ->
+//                if (type == SeekBarType.BRIGHTNESS) {
+//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+//                }else if (type == SeekBarType.HUE) {
+//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+//                }else if (type == SeekBarType.CONTRAST) {
+//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+//                }else if (type == SeekBarType.SATURATION) {
+//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
+//                }
+//            }
+//        }
+
+        fun processBitmap() {
+            val filters = mutableListOf<GPUImageFilter>()
+
+            if (filterAmounts[FilterType.BRIGHTNESS] != 0.0f) {
+                filters.add(GPUImageBrightnessFilter(filterAmounts[FilterType.BRIGHTNESS]!!))
             }
+
+            if (filterAmounts[FilterType.CONTRAST] != 0.0f) {
+                filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
+            }
+
+            if (filterAmounts[FilterType.SATURATION] != 0.0f) {
+                filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
+            }
+
+            if (filterAmounts[FilterType.HUE] != 0.0f) {
+                filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
+            }
+
+            applyFilters(filters.toTypedArray())
         }
 
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-              processBitmap(SeekBarType.BRIGHTNESS, originalBitmap, progress.toFloat())
+//              processBitmap(SeekBarType.BRIGHTNESS, originalBitmap, progress.toFloat())
+                filterAmounts[FilterType.BRIGHTNESS] = progress.toFloat()
+                processBitmap()
             }
 
 
@@ -114,7 +138,8 @@ class MainActivity : AppCompatActivity() {
 
         contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                processBitmap(SeekBarType.CONTRAST, originalBitmap, progress.toFloat())
+                filterAmounts[FilterType.CONTRAST] = progress.toFloat()
+                processBitmap()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
@@ -123,7 +148,8 @@ class MainActivity : AppCompatActivity() {
 
         saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                processBitmap(SeekBarType.SATURATION, originalBitmap, progress.toFloat())
+                filterAmounts[FilterType.SATURATION] = progress.toFloat()
+                processBitmap()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
@@ -132,7 +158,8 @@ class MainActivity : AppCompatActivity() {
 
         hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                processBitmap(SeekBarType.HUE, originalBitmap, progress.toFloat())
+                filterAmounts[FilterType.HUE] = progress.toFloat()
+                processBitmap()
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -175,66 +202,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-//    private fun updateImage() {
-////        modifiedBitmap = originalBitmap?.let { gpuImage.bitmapWithFilterApplied(it) }
-//        // Update your ImageView with the modifiedBitmap
-//    }
-
-    private fun applyHueFilter(bitmap: Bitmap, hueValue: Float): Bitmap {
-        val hueFilter = GPUImageHueFilter(hueValue)
-        gpuImage.setFilter(hueFilter)
-        return gpuImage.getBitmapWithFilterApplied(bitmap)
-    }
-
-    private fun applyBrightnessFilter(brightness: Int) {
-        gpuImage.setFilter(GPUImageBrightnessFilter(brightness / 100f))
-        updateImage()
-    }
-
-    private fun applyContrastFilter(contrast: Float) {
-        gpuImage.setFilter(GPUImageContrastFilter(contrast))
-        updateImage()
-    }
-
-    private fun applySaturationFilter(saturation: Float) {
-        gpuImage.setFilter(GPUImageSaturationFilter(saturation))
-        updateImage()
-    }
-
-    private fun applyHueFilter(hue: Float) {
-        gpuImage.setFilter(GPUImageHueFilter(hue))
-        updateImage()
-    }
-
-
     private fun applyFilters(filters: Array<GPUImageFilter>) {
         val filterGroup = GPUImageFilterGroup()
         filters.forEach { filterGroup.addFilter(it) }
         gpuImage.setFilter(filterGroup)
+
+        if (gpuImage.bitmapWithFilterApplied != null) {
+            modifiedImageView.setImageBitmap(gpuImage.bitmapWithFilterApplied)
+        } else {
+            print("Oopsie bitmap is null!!!")
+        }
+
+
+
     }
 
 
-    private fun updateImage() {
-        val filters = mutableListOf<GPUImageFilter>()
-
-        if (filterAmounts["Brightness"] != 0.0f) {
-            filters.add(GPUImageBrightnessFilter(filterAmounts["Brightness"]!!))
-        }
-
-        if (filterAmounts["Contrast"] != 0.0f) {
-            filters.add(GPUImageContrastFilter(filterAmounts["Contrast"]!!))
-        }
-
-        if (filterAmounts["Saturation"] != 0.0f) {
-            filters.add(GPUImageSaturationFilter(filterAmounts["Saturation"]!!))
-        }
-
-        if (filterAmounts["Hue"] != 0.0f) {
-            filters.add(GPUImageHueFilter(filterAmounts["Hue"]!!))
-        }
-
-        applyFilters(filters.toTypedArray())
-    }
     private fun saveImage(bitmap: Bitmap) {
         try {
             // Create a file in the external storage
