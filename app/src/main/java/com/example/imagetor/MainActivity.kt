@@ -138,7 +138,7 @@ class MainActivity : AppCompatActivity() {
 
         contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.CONTRAST] = (progress.toFloat() / 100) - 1
+                filterAmounts[FilterType.CONTRAST] = ((progress.toFloat() / 100) - 0.6).toFloat()
                 processBitmap()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
