@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Display original image
                 originalImageView.setImageBitmap(originalBitmap)
+                gpuImage.setImage(originalBitmap)
 
                 // Reset hue seekbar
                 hueSeekBar.progress = 0
