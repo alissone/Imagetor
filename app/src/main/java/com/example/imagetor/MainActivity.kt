@@ -1,15 +1,20 @@
 package com.example.imagetor
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.MotionEvent
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
@@ -25,7 +30,7 @@ import jp.co.cyberagent.android.gpuimage.filter.GPUImageWhiteBalanceFilter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-
+import kotlin.math.abs
 
 enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE }
 
@@ -43,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private var modifiedBitmap: Bitmap? = null
     lateinit var gpuImage: GPUImage
 
-
     private var filterAmounts = mutableMapOf(
         FilterType.BRIGHTNESS to 0.0f,
         FilterType.CONTRAST to 0.0f,
@@ -53,6 +57,32 @@ class MainActivity : AppCompatActivity() {
         FilterType.WHITE_BALANCE to 0.5f
     )
 
+    // UI Components
+    private lateinit var optionsPopup: LinearLayout
+    private lateinit var optionTitle: TextView
+    private lateinit var optionValue: TextView
+
+    // State variables
+    private var isPopupShown = false
+    private var startX = 0f
+    private var startY = 0f
+    private var currentOption = 0
+    private var currentValue = 50
+
+    // Options available in the editor
+    private val options = listOf("Brightness", "Contrast", "Saturation", "Structure")
+    private val optionValues = mutableMapOf(
+        "Brightness" to 50,
+        "Contrast" to 50,
+        "Saturation" to 50,
+        "Structure" to 50
+    )
+
+    // Minimum time to hold for popup to appear (ms)
+    private val LONG_PRESS_THRESHOLD = 300L
+
+    // Minimum distance to consider as a swipe
+    private val MIN_SWIPE_DISTANCE = 140f
 
     companion object {
         private const val PICK_IMAGE_REQUEST = 1
@@ -85,6 +115,8 @@ class MainActivity : AppCompatActivity() {
         // Create a scaled bitmap that matches the ImageView dimensions
         return Bitmap.createScaledBitmap(sourceBitmap, targetWidth, targetHeight, true)
     }
+
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_hue_modification)
@@ -96,12 +128,85 @@ class MainActivity : AppCompatActivity() {
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
 
-
         gpuImage = GPUImage(this)
 
         val brightnessSeekBar = findViewById<SeekBar>(R.id.brightnessSeekBar)
         val contrastSeekBar = findViewById<SeekBar>(R.id.contrastSeekBar)
         val saturationSeekBar = findViewById<SeekBar>(R.id.saturationSeekBar)
+
+
+        // Initialize UI components
+        optionsPopup = findViewById(R.id.optionsPopup)
+        optionTitle = findViewById(R.id.optionTitle)
+        optionValue = findViewById(R.id.optionValue)
+
+        // Initially hide the popup
+        optionsPopup.visibility = View.GONE
+
+        // Set touch listener for the image view
+        modifiedImageView.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Store initial touch position
+                    startX = event.x
+                    startY = event.y
+
+                    // Start a delayed action for long press
+                    view.postDelayed({
+                        if (!isPopupShown) {
+                            showOptionsPopup()
+                        }
+                    }, LONG_PRESS_THRESHOLD)
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (isPopupShown) {
+                        // Calculate how far the finger has moved
+                        val deltaX = event.x - startX
+                        val deltaY = event.y - startY
+
+                        // If significant horizontal movement, adjust the current option's value
+                        if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
+                            val currentOptionName = options[currentOption]
+                            val currentVal = optionValues[currentOptionName] ?: 50
+                            val change = (deltaX / 10).toInt()
+                            optionValues[currentOptionName] = (currentVal + change).coerceIn(0, 100)
+                            updateOptionValueDisplay()
+
+                            // Reset start position to allow for continuous adjustment
+                            startX = event.x
+                        }
+
+                        // If significant vertical movement, switch between options
+                        if (abs(deltaY) > MIN_SWIPE_DISTANCE) {
+                            if (deltaY > 0) {
+                                // Swipe down - next option
+                                currentOption = (currentOption + 1) % options.size
+                            } else {
+                                // Swipe up - previous option
+                                currentOption = (currentOption - 1 + options.size) % options.size
+                            }
+                            updateOptionDisplay()
+
+                            // Reset start position to allow for continuous switching
+                            startY = event.y
+                        }
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    // If the popup is not shown, this was a quick tap, handle accordingly
+                    if (!isPopupShown) {
+                        view.removeCallbacks(null)
+                    }
+                    true
+                }
+
+                else -> false
+            }
+        }
 
         originalImageView.visibility = View.GONE
 
@@ -115,6 +220,8 @@ class MainActivity : AppCompatActivity() {
                 showModifiedImageOnly()
             }
         }
+
+
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
 
@@ -169,6 +276,7 @@ class MainActivity : AppCompatActivity() {
                 filterAmounts[FilterType.CONTRAST] = ((progress.toFloat() / 100) - 0.6).toFloat()
                 processBitmap()
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -179,6 +287,7 @@ class MainActivity : AppCompatActivity() {
                 filterAmounts[FilterType.SATURATION] = (progress.toFloat() / 200).toFloat()
                 processBitmap()
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -242,13 +351,10 @@ class MainActivity : AppCompatActivity() {
         } else {
             print("Oopsie bitmap is null!!!")
         }
-
-
-
     }
 
 
-    private fun saveImage(bitmap: Bitmap) {
+    fun saveImage(bitmap: Bitmap) {
         try {
             // Create a file in the external storage
             val fileName = "modified_image_${System.currentTimeMillis()}.jpg"
@@ -282,6 +388,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show()
         }
     }
+
     private fun showOriginalImageOnly() {
         originalImageView.visibility = View.VISIBLE
         modifiedImageView.visibility = View.GONE
@@ -290,6 +397,59 @@ class MainActivity : AppCompatActivity() {
     private fun showModifiedImageOnly() {
         originalImageView.visibility = View.GONE
         modifiedImageView.visibility = View.VISIBLE
+    }
+
+    private fun showOptionsPopup() {
+        isPopupShown = true
+
+        // Set the initial option to display
+        updateOptionDisplay()
+
+        // Animate the popup appearing
+        optionsPopup.visibility = View.VISIBLE
+        val animation = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
+        optionsPopup.startAnimation(animation)
+    }
+
+    private fun hideOptionsPopup() {
+        isPopupShown = false
+
+        // Animate the popup disappearing
+        val animation = AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+        optionsPopup.startAnimation(animation)
+        optionsPopup.visibility = View.GONE
+    }
+
+    private fun updateOptionDisplay() {
+        val currentOptionName = options[currentOption]
+        optionTitle.text = currentOptionName
+        updateOptionValueDisplay()
+    }
+
+    private fun updateOptionValueDisplay() {
+        val currentOptionName = options[currentOption]
+        val value = optionValues[currentOptionName] ?: 50
+        optionValue.text = "$value%"
+
+        // Here you would also apply the actual image adjustments
+        applyImageEffect(currentOptionName, value)
+    }
+
+    private fun applyImageEffect(option: String, value: Int) {
+        // This is where you would implement the actual image processing
+        // For an MVP, we're just logging the changes
+        println("Applying $option with value $value")
+
+        // Example implementation could use ColorMatrix, ColorMatrixColorFilter, etc.
+        // or a library like GPUImage
+    }
+
+    override fun onBackPressed() {
+        if (isPopupShown) {
+            hideOptionsPopup()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
 
