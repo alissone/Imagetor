@@ -58,6 +58,33 @@ class MainActivity : AppCompatActivity() {
         private const val PICK_IMAGE_REQUEST = 1
     }
 
+    fun createProxyBitmap(imageView: ImageView, sourceBitmap: Bitmap): Bitmap {
+        // Get the dimensions of the ImageView
+        var targetWidth = imageView.width
+        var targetHeight = imageView.height
+
+
+        // If the ImageView hasn't been laid out yet, use its layout params
+        if (targetWidth <= 0 || targetHeight <= 0) {
+            targetWidth = imageView.layoutParams.width
+            targetHeight = imageView.layoutParams.height
+
+
+            // If layout params aren't set either, we need another approach
+            if (targetWidth <= 0 || targetHeight <= 0) {
+                // Wait for layout to complete or use default dimensions
+                imageView.post {
+                    // Call this method again once layout is complete
+                }
+                return sourceBitmap // Return original for now
+            }
+        }
+
+
+        // Create a scaled bitmap that matches the ImageView dimensions
+        return Bitmap.createScaledBitmap(sourceBitmap, targetWidth, targetHeight, true)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_hue_modification)
@@ -90,19 +117,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
-//        fun processBitmap(type: SeekBarType, originalBitmap: Bitmap?, progress: Float) {
-//            originalBitmap?.let { bitmap ->
-//                if (type == SeekBarType.BRIGHTNESS) {
-//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-//                }else if (type == SeekBarType.HUE) {
-//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-//                }else if (type == SeekBarType.CONTRAST) {
-//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-//                }else if (type == SeekBarType.SATURATION) {
-//                    modifiedImageView.setImageBitmap(applyHueFilter(bitmap, progress))
-//                }
-//            }
-//        }
 
         fun processBitmap() {
             val filters = mutableListOf<GPUImageFilter>()
@@ -203,10 +217,11 @@ class MainActivity : AppCompatActivity() {
 
                 // Load bitmap from URI
                 originalBitmap = MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
+                var proxyBitmap = createProxyBitmap(modifiedImageView, originalBitmap!!)
 
                 // Display original image
-                originalImageView.setImageBitmap(originalBitmap)
-                gpuImage.setImage(originalBitmap)
+                originalImageView.setImageBitmap(proxyBitmap)
+                gpuImage.setImage(proxyBitmap)
 
                 // Reset hue seekbar
                 hueSeekBar.progress = 0
