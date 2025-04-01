@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     private var filterAmounts = mutableMapOf(
         FilterType.BRIGHTNESS to 0.0f,
         FilterType.CONTRAST to 0.0f,
-        FilterType.SATURATION to 0.0f,
+        FilterType.SATURATION to 1.0f,
         FilterType.HUE to 0.0f,
         FilterType.SHADOW to 0.5f,
         FilterType.WHITE_BALANCE to 0.5f
@@ -60,18 +60,16 @@ class MainActivity : AppCompatActivity() {
 
     fun createProxyBitmap(imageView: ImageView, sourceBitmap: Bitmap): Bitmap {
         // Get the dimensions of the ImageView
-        var targetWidth = imageView.width
         var targetHeight = imageView.height
 
 
         // If the ImageView hasn't been laid out yet, use its layout params
-        if (targetWidth <= 0 || targetHeight <= 0) {
-            targetWidth = imageView.layoutParams.width
+        if (targetHeight <= 0) {
             targetHeight = imageView.layoutParams.height
 
 
             // If layout params aren't set either, we need another approach
-            if (targetWidth <= 0 || targetHeight <= 0) {
+            if (targetHeight <= 0) {
                 // Wait for layout to complete or use default dimensions
                 imageView.post {
                     // Call this method again once layout is complete
@@ -80,11 +78,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Calculate the width proportionally to the aspect ratio of the original image
+        val targetWidth =
+            (sourceBitmap.width.toFloat() / sourceBitmap.height.toFloat() * targetHeight).toInt()
 
         // Create a scaled bitmap that matches the ImageView dimensions
         return Bitmap.createScaledBitmap(sourceBitmap, targetWidth, targetHeight, true)
     }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_hue_modification)
@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
                 filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
             }
 
-            if (filterAmounts[FilterType.SATURATION] != 0.0f) {
+            if (filterAmounts[FilterType.SATURATION] != 0.1f) {
                 filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
             }
 
@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
 
         saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.SATURATION] = progress.toFloat()
+                filterAmounts[FilterType.SATURATION] = (progress.toFloat() / 200).toFloat()
                 processBitmap()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
