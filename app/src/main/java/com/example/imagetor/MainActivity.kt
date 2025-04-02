@@ -5,6 +5,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.View
@@ -68,6 +70,10 @@ class MainActivity : AppCompatActivity() {
     private var startY = 0f
     private var currentOption = 0
     private var currentValue = 50
+
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingFilterRunnable: Runnable? = null
 
     // Options available in the editor
     private val options = listOf(
@@ -226,40 +232,7 @@ class MainActivity : AppCompatActivity() {
 
 
 
-        // TODO: We should really edit a proxy of the image (fit by % of screen resolution) instead of the full image
 
-        fun processBitmap() {
-            val filters = mutableListOf<GPUImageFilter>()
-
-            if (filterAmounts[FilterType.BRIGHTNESS] != 0.0f) {
-                filters.add(GPUImageBrightnessFilter(filterAmounts[FilterType.BRIGHTNESS]!!))
-            }
-
-            if (filterAmounts[FilterType.CONTRAST] != 0.0f) {
-                filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
-            }
-
-            if (filterAmounts[FilterType.SATURATION] != 0.1f) {
-                filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
-            }
-
-            if (filterAmounts[FilterType.HUE] != 0.0f) {
-                filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
-            }
-
-
-            if (filterAmounts[FilterType.SHADOW] != 0.5f) { // Assuming 50 is the neutral value
-                val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 50).toFloat() / 100 * 2
-                filters.add(GPUImageContrastFilter(1 + shadowValue))
-            }
-
-            if (filterAmounts[FilterType.WHITE_BALANCE] != 0.5f) { // Assuming 50 is the neutral value
-                val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 50).toFloat() / 100 * 2
-                filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
-            }
-
-            applyFilters(filters.toTypedArray())
-        }
 
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -442,9 +415,52 @@ class MainActivity : AppCompatActivity() {
         // This is where you would implement the actual image processing
         // For an MVP, we're just logging the changes
         println("Applying $option with value $value")
+        processBitmap()
 
         // Example implementation could use ColorMatrix, ColorMatrixColorFilter, etc.
         // or a library like GPUImage
+    }
+
+
+    fun applyFiltersIntoBitmap() {
+        val filters = mutableListOf<GPUImageFilter>()
+
+        if (filterAmounts[FilterType.BRIGHTNESS] != 0.0f) {
+            filters.add(GPUImageBrightnessFilter(filterAmounts[FilterType.BRIGHTNESS]!!))
+        }
+
+        if (filterAmounts[FilterType.CONTRAST] != 0.0f) {
+            filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
+        }
+
+        if (filterAmounts[FilterType.SATURATION] != 0.1f) {
+            filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
+        }
+
+        if (filterAmounts[FilterType.HUE] != 0.0f) {
+            filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
+        }
+
+
+        if (filterAmounts[FilterType.SHADOW] != 0.5f) { // Assuming 50 is the neutral value
+            val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 50).toFloat() / 100 * 2
+            filters.add(GPUImageContrastFilter(1 + shadowValue))
+        }
+
+        if (filterAmounts[FilterType.WHITE_BALANCE] != 0.5f) { // Assuming 50 is the neutral value
+            val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 50).toFloat() / 100 * 2
+            filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
+        }
+
+        applyFilters(filters.toTypedArray())
+    }
+
+    private fun processBitmap() {
+        pendingFilterRunnable?.let { handler.removeCallbacks(it) }
+        pendingFilterRunnable = Runnable {
+            applyFiltersIntoBitmap()
+        }
+        handler.postDelayed(pendingFilterRunnable!!, 500)
     }
 
     override fun onBackPressed() {
