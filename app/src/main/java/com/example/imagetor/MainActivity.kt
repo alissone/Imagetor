@@ -32,7 +32,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.math.abs
 
-enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE }
+enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE, STRUCTURE }
 
 class MainActivity : AppCompatActivity() {
 
@@ -70,12 +70,13 @@ class MainActivity : AppCompatActivity() {
     private var currentValue = 50
 
     // Options available in the editor
-    private val options = listOf("Brightness", "Contrast", "Saturation", "Structure")
-    private val optionValues = mutableMapOf(
-        "Brightness" to 50,
-        "Contrast" to 50,
-        "Saturation" to 50,
-        "Structure" to 50
+    private val options = listOf(
+        FilterType.BRIGHTNESS,
+        FilterType.CONTRAST,
+        FilterType.SATURATION,
+        FilterType.HUE,
+        FilterType.SHADOW,
+        FilterType.WHITE_BALANCE
     )
 
     // Minimum time to hold for popup to appear (ms)
@@ -169,9 +170,11 @@ class MainActivity : AppCompatActivity() {
                         // If significant horizontal movement, adjust the current option's value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
                             val currentOptionName = options[currentOption]
-                            val currentVal = optionValues[currentOptionName] ?: 50
-                            val change = (deltaX / 10).toInt()
-                            optionValues[currentOptionName] = (currentVal + change).coerceIn(0, 100)
+                            val currentVal = filterAmounts[currentOptionName] ?: 50f
+                            val change = (deltaX / 10).toInt().toFloat()
+                            filterAmounts[currentOptionName] = (currentVal + change).coerceIn(0F,
+                                100F
+                            )
                             updateOptionValueDisplay()
 
                             // Reset start position to allow for continuous adjustment
@@ -422,20 +425,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateOptionDisplay() {
         val currentOptionName = options[currentOption]
-        optionTitle.text = currentOptionName
+        optionTitle.text = currentOptionName.toString()
         updateOptionValueDisplay()
     }
 
     private fun updateOptionValueDisplay() {
         val currentOptionName = options[currentOption]
-        val value = optionValues[currentOptionName] ?: 50
+        val value = filterAmounts[currentOptionName] ?: 50f
         optionValue.text = "$value%"
 
         // Here you would also apply the actual image adjustments
         applyImageEffect(currentOptionName, value)
     }
 
-    private fun applyImageEffect(option: String, value: Int) {
+    private fun applyImageEffect(option: FilterType, value: Float) {
         // This is where you would implement the actual image processing
         // For an MVP, we're just logging the changes
         println("Applying $option with value $value")
