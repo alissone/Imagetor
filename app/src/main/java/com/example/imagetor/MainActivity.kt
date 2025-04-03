@@ -38,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var saturationSeekBar: SeekBar
     private lateinit var selectImageButton: Button
     private lateinit var saveImageButton: Button
+    private lateinit var resetControlsButton: LinearLayout
+
 
     // UI Components for popup
     private lateinit var optionsPopup: LinearLayout
@@ -88,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         saturationSeekBar = findViewById(R.id.saturationSeekBar)
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
+        resetControlsButton = findViewById(R.id.reset_button)
 
         // Initialize popup UI components
         optionsPopup = findViewById(R.id.optionsPopup)
@@ -172,6 +175,8 @@ class MainActivity : AppCompatActivity() {
                 saveImage(bitmap)
             } ?: Toast.makeText(this, "No image to save", Toast.LENGTH_SHORT).show()
         }
+
+        resetControlsButton.setOnClickListener { imageEditorViewModel.resetFilters() }
 
         // Brightness SeekBar
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
