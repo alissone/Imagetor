@@ -21,20 +21,10 @@ import android.widget.Toast
 import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import jp.co.cyberagent.android.gpuimage.GPUImage
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageBrightnessFilter
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageContrastFilter
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilter
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilterGroup
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageHueFilter
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageSaturationFilter
-import jp.co.cyberagent.android.gpuimage.filter.GPUImageWhiteBalanceFilter
+import androidx.lifecycle.ViewModelProvider
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import kotlin.math.abs
-
-enum class FilterType { BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE, STRUCTURE }
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,87 +33,191 @@ class MainActivity : AppCompatActivity() {
     private lateinit var originalImageView: ImageView
     private lateinit var modifiedImageView: ImageView
     private lateinit var hueSeekBar: SeekBar
+    private lateinit var brightnessSeekBar: SeekBar
+    private lateinit var contrastSeekBar: SeekBar
+    private lateinit var saturationSeekBar: SeekBar
     private lateinit var selectImageButton: Button
     private lateinit var saveImageButton: Button
 
-    private var originalBitmap: Bitmap? = null
-    private var modifiedBitmap: Bitmap? = null
-    lateinit var gpuImage: GPUImage
-
-    private var filterAmounts = mutableMapOf(
-        FilterType.BRIGHTNESS to 0.0f,
-        FilterType.CONTRAST to 0.0f,
-        FilterType.SATURATION to 1.0f,
-        FilterType.HUE to 0.0f,
-        FilterType.SHADOW to 0.5f,
-        FilterType.WHITE_BALANCE to 0.5f
-    )
-
-    // UI Components
+    // UI Components for popup
     private lateinit var optionsPopup: LinearLayout
     private lateinit var optionTitle: TextView
     private lateinit var optionValue: TextView
 
-    // State variables
+    // State variables for touch handling
     private var isPopupShown = false
     private var startX = 0f
     private var startY = 0f
     private var currentOption = 0
-    private var currentValue = 50
 
+    // ViewModel
+    private lateinit var imageEditorViewModel: ImageEditorViewModel
 
-    private val handler = Handler(Looper.getMainLooper())
-    private var pendingFilterRunnable: Runnable? = null
-
-    // Options available in the editor
-    private val options = listOf(
-        FilterType.BRIGHTNESS,
-        FilterType.CONTRAST,
-        FilterType.SATURATION,
-        FilterType.HUE,
-        FilterType.SHADOW,
-        FilterType.WHITE_BALANCE
-    )
-
-    // Minimum time to hold for popup to appear (ms)
+    // Constants
     private val LONG_PRESS_THRESHOLD = 300L
-
-    // Minimum distance to consider as a swipe
     private val MIN_SWIPE_DISTANCE = 140f
 
     companion object {
         private const val PICK_IMAGE_REQUEST = 1
     }
 
-
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_hue_modification)
 
+        // Initialize ViewModel
+        imageEditorViewModel = ViewModelProvider(this).get(ImageEditorViewModel::class.java)
+
+        // Initialize UI components
+        initializeViews()
+        setupListeners()
+        observeViewModel()
+
+        // Initially hide original image
+        originalImageView.visibility = View.GONE
+    }
+
+    private fun initializeViews() {
         toggleButton = findViewById(R.id.toggleButton)
         originalImageView = findViewById(R.id.originalImageView)
         modifiedImageView = findViewById(R.id.modifiedImageView)
         hueSeekBar = findViewById(R.id.hueSeekBar)
+        brightnessSeekBar = findViewById(R.id.brightnessSeekBar)
+        contrastSeekBar = findViewById(R.id.contrastSeekBar)
+        saturationSeekBar = findViewById(R.id.saturationSeekBar)
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
 
-        gpuImage = GPUImage(this)
-
-        val brightnessSeekBar = findViewById<SeekBar>(R.id.brightnessSeekBar)
-        val contrastSeekBar = findViewById<SeekBar>(R.id.contrastSeekBar)
-        val saturationSeekBar = findViewById<SeekBar>(R.id.saturationSeekBar)
-
-
-        // Initialize UI components
+        // Initialize popup UI components
         optionsPopup = findViewById(R.id.optionsPopup)
         optionTitle = findViewById(R.id.optionTitle)
         optionValue = findViewById(R.id.optionValue)
 
         // Initially hide the popup
         optionsPopup.visibility = View.GONE
+    }
 
-        // Set touch listener for the image view
+    private fun observeViewModel() {
+        // Observe original image changes
+        imageEditorViewModel.originalBitmap.observe(this) { bitmap ->
+            bitmap?.let {
+                originalImageView.setImageBitmap(it)
+            }
+        }
+
+        // Observe modified image changes
+        imageEditorViewModel.modifiedBitmap.observe(this) { bitmap ->
+            bitmap?.let {
+                modifiedImageView.setImageBitmap(it)
+            }
+        }
+
+        // Observe filter values for UI updates
+        imageEditorViewModel.filterValues.observe(this) { filterValues ->
+            // Update seekbars only if they're not being adjusted by user
+            updateSeekBarsFromViewModel(filterValues)
+        }
+    }
+
+    private fun updateSeekBarsFromViewModel(filterValues: Map<FilterType, Float>) {
+        // Only update if the seekbar is not being touched by the user
+        filterValues[FilterType.BRIGHTNESS]?.let {
+            val progress = ((it + 1) * 100).toInt()
+            if (brightnessSeekBar.progress != progress) {
+                brightnessSeekBar.progress = progress
+            }
+        }
+
+        filterValues[FilterType.CONTRAST]?.let {
+            val progress = ((it + 0.6) * 100).toInt()
+            if (contrastSeekBar.progress != progress) {
+                contrastSeekBar.progress = progress
+            }
+        }
+
+        filterValues[FilterType.SATURATION]?.let {
+            val progress = (it * 200).toInt()
+            if (saturationSeekBar.progress != progress) {
+                saturationSeekBar.progress = progress
+            }
+        }
+
+        filterValues[FilterType.HUE]?.let {
+            if (hueSeekBar.progress != it.toInt()) {
+                hueSeekBar.progress = it.toInt()
+            }
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupListeners() {
+        // Image selection button
+        selectImageButton.setOnClickListener {
+            openImagePicker()
+        }
+
+        // Toggle button for original/modified view
+        toggleButton.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                showOriginalImageOnly()
+            } else {
+                showModifiedImageOnly()
+            }
+        }
+
+        // Save button
+        saveImageButton.setOnClickListener {
+            imageEditorViewModel.getModifiedBitmap()?.let { bitmap ->
+                saveImage(bitmap)
+            } ?: Toast.makeText(this, "No image to save", Toast.LENGTH_SHORT).show()
+        }
+
+        // Brightness SeekBar
+        brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    imageEditorViewModel.updateFilter(FilterType.BRIGHTNESS, (progress.toFloat() / 100) - 1)
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Contrast SeekBar
+        contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    imageEditorViewModel.updateFilter(FilterType.CONTRAST, ((progress.toFloat() / 100) - 0.6).toFloat())
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Saturation SeekBar
+        saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    imageEditorViewModel.updateFilter(FilterType.SATURATION, (progress.toFloat() / 200).toFloat())
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Hue SeekBar
+        hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    imageEditorViewModel.updateFilter(FilterType.HUE, progress.toFloat())
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Touch listener for popup controls
         modifiedImageView.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -146,32 +240,32 @@ class MainActivity : AppCompatActivity() {
                         val deltaX = event.x - startX
                         val deltaY = event.y - startY
 
-                        // If significant horizontal movement, adjust the current option's value
+                        // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
-                            val currentOptionName = options[currentOption]
-                            val currentVal = filterAmounts[currentOptionName] ?: 50f
+                            val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+                            val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
                             val change = (deltaX / 10).toInt().toFloat()
-                            filterAmounts[currentOptionName] = (currentVal + change).coerceIn(0F,
-                                100F
-                            )
+                            val newValue = (currentVal + change).coerceIn(0f, 100f)
+                            imageEditorViewModel.updateFilter(currentFilterType, newValue)
                             updateOptionValueDisplay()
 
-                            // Reset start position to allow for continuous adjustment
+                            // Reset start position for continuous adjustment
                             startX = event.x
                         }
 
-                        // If significant vertical movement, switch between options
+                        // Handle vertical swipe - change option
                         if (abs(deltaY) > MIN_SWIPE_DISTANCE) {
+                            val filterTypes = imageEditorViewModel.getFilterTypes()
                             if (deltaY > 0) {
                                 // Swipe down - next option
-                                currentOption = (currentOption + 1) % options.size
+                                currentOption = (currentOption + 1) % filterTypes.size
                             } else {
                                 // Swipe up - previous option
-                                currentOption = (currentOption - 1 + options.size) % options.size
+                                currentOption = (currentOption - 1 + filterTypes.size) % filterTypes.size
                             }
                             updateOptionDisplay()
 
-                            // Reset start position to allow for continuous switching
+                            // Reset start position for continuous switching
                             startY = event.y
                         }
                     }
@@ -179,7 +273,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MotionEvent.ACTION_UP -> {
-                    // If the popup is not shown, this was a quick tap, handle accordingly
+                    // If popup not shown, this was a quick tap
                     if (!isPopupShown) {
                         view.removeCallbacks(null)
                     }
@@ -188,75 +282,6 @@ class MainActivity : AppCompatActivity() {
 
                 else -> false
             }
-        }
-
-        originalImageView.visibility = View.GONE
-
-        selectImageButton.setOnClickListener {
-            openImagePicker()
-        }
-        toggleButton.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                showOriginalImageOnly()
-            } else {
-                showModifiedImageOnly()
-            }
-        }
-
-
-
-
-
-        brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-//              processBitmap(SeekBarType.BRIGHTNESS, originalBitmap, progress.toFloat())
-                filterAmounts[FilterType.BRIGHTNESS] = (progress.toFloat() / 100) - 1
-                processBitmap()
-            }
-
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.CONTRAST] = ((progress.toFloat() / 100) - 0.6).toFloat()
-                processBitmap()
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.SATURATION] = (progress.toFloat() / 200).toFloat()
-                processBitmap()
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                filterAmounts[FilterType.HUE] = progress.toFloat()
-                processBitmap()
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        // TODO Example for saving, it should save it into the app storage itself, and we will be able to share it afterwards
-        saveImageButton.setOnClickListener {
-            modifiedBitmap?.let { bitmap ->
-                saveImage(bitmap)
-            } ?: Toast.makeText(this, "No image to save", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -273,37 +298,20 @@ class MainActivity : AppCompatActivity() {
                 // Get the selected image URI
                 val imageUri: Uri = data.data ?: return
 
-                // Load bitmap from URI
-                originalBitmap = MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
-                var proxyBitmap = ImageProxy.createProxyBitmap(modifiedImageView, originalBitmap!!)
+                // Load bitmap and update ViewModel
+                val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
+                imageEditorViewModel.setOriginalBitmap(bitmap)
 
-                // Display original image
-                originalImageView.setImageBitmap(proxyBitmap)
-                gpuImage.setImage(proxyBitmap)
-
-                // Reset hue seekbar
-                hueSeekBar.progress = 0
-            } catch (e: IOException) {
+                // Reset filters
+                imageEditorViewModel.resetFilters()
+            } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun applyFilters(filters: Array<GPUImageFilter>) {
-        val filterGroup = GPUImageFilterGroup()
-        filters.forEach { filterGroup.addFilter(it) }
-        gpuImage.setFilter(filterGroup)
-
-        if (gpuImage.bitmapWithFilterApplied != null) {
-            modifiedImageView.setImageBitmap(gpuImage.bitmapWithFilterApplied)
-        } else {
-            print("Oopsie bitmap is null!!!")
-        }
-    }
-
-
-    fun saveImage(bitmap: Bitmap) {
+    private fun saveImage(bitmap: Bitmap) {
         try {
             // Create a file in the external storage
             val fileName = "modified_image_${System.currentTimeMillis()}.jpg"
@@ -321,10 +329,10 @@ class MainActivity : AppCompatActivity() {
                 file
             )
 
-            // Notify the user and optionally share
+            // Notify the user and share
             Toast.makeText(this, "Image saved: $fileName", Toast.LENGTH_SHORT).show()
 
-            // Optional: Open share intent
+            // Open share intent
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/jpeg"
                 putExtra(Intent.EXTRA_STREAM, fileUri)
@@ -370,70 +378,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateOptionDisplay() {
-        val currentOptionName = options[currentOption]
-        optionTitle.text = currentOptionName.toString()
+        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+        optionTitle.text = currentFilterType.toString()
         updateOptionValueDisplay()
     }
 
     private fun updateOptionValueDisplay() {
-        val currentOptionName = options[currentOption]
-        val value = filterAmounts[currentOptionName] ?: 50f
+        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
         optionValue.text = "$value%"
-
-        // Here you would also apply the actual image adjustments
-        applyImageEffect(currentOptionName, value)
-    }
-
-    private fun applyImageEffect(option: FilterType, value: Float) {
-        // This is where you would implement the actual image processing
-        // For an MVP, we're just logging the changes
-        println("Applying $option with value $value")
-        processBitmap()
-
-        // Example implementation could use ColorMatrix, ColorMatrixColorFilter, etc.
-        // or a library like GPUImage
-    }
-
-
-    fun applyFiltersIntoBitmap() {
-        val filters = mutableListOf<GPUImageFilter>()
-
-        if (filterAmounts[FilterType.BRIGHTNESS] != 0.0f) {
-            filters.add(GPUImageBrightnessFilter(filterAmounts[FilterType.BRIGHTNESS]!!))
-        }
-
-        if (filterAmounts[FilterType.CONTRAST] != 0.0f) {
-            filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
-        }
-
-        if (filterAmounts[FilterType.SATURATION] != 0.1f) {
-            filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
-        }
-
-        if (filterAmounts[FilterType.HUE] != 0.0f) {
-            filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
-        }
-
-
-        if (filterAmounts[FilterType.SHADOW] != 0.5f) { // Assuming 50 is the neutral value
-            val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 50).toFloat() / 100 * 2
-            filters.add(GPUImageContrastFilter(1 + shadowValue))
-        }
-
-        if (filterAmounts[FilterType.WHITE_BALANCE] != 0.5f) { // Assuming 50 is the neutral value
-            val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 50).toFloat() / 100 * 2
-            filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
-        }
-
-        applyFilters(filters.toTypedArray())
-    }
-
-    private fun processBitmap() {
-        pendingFilterRunnable?.let { handler.removeCallbacks(it) }
-        pendingFilterRunnable = Runnable {
-            applyFiltersIntoBitmap()
-        }
-        handler.postDelayed(pendingFilterRunnable!!, 500)
     }
 
     override fun onBackPressed() {
