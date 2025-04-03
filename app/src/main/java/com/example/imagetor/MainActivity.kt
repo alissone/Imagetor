@@ -123,7 +123,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateSeekBarsFromViewModel(filterValues: Map<FilterType, Float>) {
         // Only update if the seekbar is not being touched by the user
         filterValues[FilterType.BRIGHTNESS]?.let {
-            val progress = ((it + 1) * 100).toInt()
+            val progress = ((it + 1)).toInt()
             if (brightnessSeekBar.progress != progress) {
                 brightnessSeekBar.progress = progress
             }
@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
         brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    imageEditorViewModel.updateFilter(FilterType.BRIGHTNESS, (progress.toFloat() / 100) - 1)
+                    imageEditorViewModel.updateFilter(FilterType.BRIGHTNESS, progress.toFloat())
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
