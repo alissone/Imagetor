@@ -5,13 +5,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.os.Environment
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -25,6 +23,7 @@ import androidx.lifecycle.ViewModelProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.abs
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -318,29 +317,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveImage(bitmap: Bitmap) {
         try {
-            // Create a file in the external storage
-            val fileName = "modified_image_${System.currentTimeMillis()}.jpg"
-            val file = File(getExternalFilesDir(null), fileName)
+            // Create a temporary file in cache
+            val tempFile = File.createTempFile("modified_image", ".jpg", this.externalCacheDir)
 
-            // Save the bitmap to the file
-            FileOutputStream(file).use { out ->
+            // Save the bitmap to the temporary file
+            FileOutputStream(tempFile).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
 
             // Create a content URI for sharing
-            val fileUri = FileProvider.getUriForFile(
+            val tempFileUri = FileProvider.getUriForFile(
                 this,
                 "${packageName}.fileprovider",
-                file
+                tempFile
             )
 
             // Notify the user and share
-            Toast.makeText(this, "Image saved: $fileName", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Image saved: ${tempFile.name}", Toast.LENGTH_SHORT).show()
 
             // Open share intent
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/jpeg"
-                putExtra(Intent.EXTRA_STREAM, fileUri)
+                putExtra(Intent.EXTRA_STREAM, tempFileUri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             startActivity(Intent.createChooser(shareIntent, "Share Image"))
