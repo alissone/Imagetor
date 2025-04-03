@@ -36,8 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var brightnessSeekBar: SeekBar
     private lateinit var contrastSeekBar: SeekBar
     private lateinit var saturationSeekBar: SeekBar
-    private lateinit var selectImageButton: Button
-    private lateinit var saveImageButton: Button
+    private lateinit var selectImageButton: LinearLayout
+    private lateinit var saveImageButton: LinearLayout
     private lateinit var resetControlsButton: LinearLayout
 
 
