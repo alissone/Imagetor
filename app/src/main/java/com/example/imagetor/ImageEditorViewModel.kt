@@ -24,15 +24,8 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     // GPUImage instance for image processing
     private val gpuImage = GPUImage(application)
 
-    // Current filter values
-    private val filterAmounts = mutableMapOf(
-        FilterType.BRIGHTNESS to FilterConstants.Defaults.BRIGHTNESS,
-        FilterType.CONTRAST to FilterConstants.Defaults.CONTRAST,
-        FilterType.SATURATION to FilterConstants.Defaults.SATURATION,
-        FilterType.HUE to FilterConstants.Defaults.HUE,
-        FilterType.SHADOW to FilterConstants.Defaults.SHADOW,
-        FilterType.WHITE_BALANCE to FilterConstants.Defaults.WHITE_BALANCE
-    )
+    // Active filters
+    private val filters = ImageFilters.createAllFilters()
 
 
     // Handler for debouncing filter processing
@@ -57,32 +50,50 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
 
     // Reset all filters to default values
     fun resetFilters() {
-        filterAmounts[FilterType.BRIGHTNESS] = FilterConstants.Defaults.BRIGHTNESS
-        filterAmounts[FilterType.CONTRAST] = FilterConstants.Defaults.CONTRAST
-        filterAmounts[FilterType.SATURATION] = FilterConstants.Defaults.SATURATION
-        filterAmounts[FilterType.HUE] = FilterConstants.Defaults.HUE
-        filterAmounts[FilterType.SHADOW] = FilterConstants.Defaults.SHADOW
-        filterAmounts[FilterType.WHITE_BALANCE] = FilterConstants.Defaults.WHITE_BALANCE
-
-        _filterValues.value = filterAmounts.toMap()
+        filters.forEach { filter ->
+            filter.currentValue = filter.defaultValue
+        }
+        updateFilterValuesMap()
         processBitmap()
     }
 
-    // Update a specific filter value
     fun updateFilter(filterType: FilterType, value: Float) {
-        filterAmounts[filterType] = value
-        _filterValues.value = filterAmounts.toMap()
-        processBitmap()
+        filters.find { it.type == filterType }?.let { filter ->
+            // Ensure value is within valid range
+            filter.currentValue = value.coerceIn(filter.minValue, filter.maxValue)
+            updateFilterValuesMap()
+            processBitmap()
+        }
     }
 
     // Get all available filter types
     fun getFilterTypes(): List<FilterType> {
-        return filterAmounts.keys.toList()
+        return filters.map { it.type }
     }
 
     // Get current value for a specific filter
     fun getFilterValue(filterType: FilterType): Float? {
-        return filterAmounts[filterType]
+        return filters.find { it.type == filterType }?.currentValue
+    }
+
+    // Get display name for a filter type
+    fun getFilterDisplayName(filterType: FilterType): String {
+        return filters.find { it.type == filterType }?.displayName ?: filterType.toString()
+    }
+
+    // Get min and max values for a filter type
+    fun getFilterRange(filterType: FilterType): Pair<Float, Float>? {
+        filters.find { it.type == filterType }?.let {
+            return Pair(it.minValue, it.maxValue)
+        }
+        return null
+    }
+
+
+    // Update the filter values LiveData map
+    private fun updateFilterValuesMap() {
+        val valuesMap = filters.associate { it.type to it.currentValue }
+        _filterValues.value = valuesMap
     }
 
     // Process the bitmap with current filters (debounced)
@@ -97,40 +108,15 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     // Apply all active filters to the bitmap
+    // Apply all active filters to the bitmap
     private fun applyFilters() {
-        val filters = mutableListOf<GPUImageFilter>()
+        // Get only filters that should be applied
+        val activeFilters = filters.filter { it.shouldApply() }
+            .map { it.createGPUFilter() }
 
-        if (filterAmounts[FilterType.BRIGHTNESS] != FilterConstants.Defaults.BRIGHTNESS) {
-            filters.add(GPUImageBrightnessFilter(
-                    (filterAmounts[FilterType.BRIGHTNESS]!! / 100) - 1
-                ))
-        }
-
-        if (filterAmounts[FilterType.CONTRAST] != FilterConstants.Defaults.CONTRAST) {
-            filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
-        }
-
-        if (filterAmounts[FilterType.SATURATION] != FilterConstants.Defaults.SATURATION) {
-            filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
-        }
-
-        if (filterAmounts[FilterType.HUE] != FilterConstants.Defaults.HUE) {
-            filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
-        }
-
-        if (filterAmounts[FilterType.SHADOW] != FilterConstants.Defaults.SHADOW) {
-            val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 0.5f) * 2
-            filters.add(GPUImageContrastFilter(1 + shadowValue))
-        }
-
-        if (filterAmounts[FilterType.WHITE_BALANCE] != FilterConstants.Defaults.WHITE_BALANCE) {
-            val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 0.5f) * 2
-            filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
-        }
-
-        if (filters.isNotEmpty()) {
+        if (activeFilters.isNotEmpty()) {
             val filterGroup = GPUImageFilterGroup()
-            filters.forEach { filterGroup.addFilter(it) }
+            activeFilters.forEach { filterGroup.addFilter(it) }
             gpuImage.setFilter(filterGroup)
 
             // Update modified bitmap

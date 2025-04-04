@@ -246,14 +246,20 @@ class ImageViewActivity : AppCompatActivity() {
                         val deltaY = event.y - startY
 
                         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
-                        val maxValue = FilterConstants.FILTER_MAX_LEVELS[currentFilterType] ?: 100f // Default to 100f if not found
+
+                        // Get the min and max values for the current filter
+                        val (minValue, maxValue) = imageEditorViewModel.getFilterRange(currentFilterType) ?: Pair(0f, 100f)
 
                         // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
-                            val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
                             val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
-                            val change = (deltaX / 10).toInt().toFloat()
-                            val newValue = (currentVal + change).coerceIn(0f, maxValue)
+
+                            // Scale the change based on the filter's range
+                            val filterRange = maxValue - minValue
+                            val change = (deltaX / 10) * (filterRange / 100f) // Scale factor to make movement appropriate
+
+                            // Apply the change and ensure it stays within bounds
+                            val newValue = (currentVal + change).coerceIn(minValue, maxValue)
                             imageEditorViewModel.updateFilter(currentFilterType, newValue)
                             updateOptionValueDisplay()
 
@@ -279,7 +285,6 @@ class ImageViewActivity : AppCompatActivity() {
                     }
                     true
                 }
-
                 MotionEvent.ACTION_UP -> {
                     // If popup not shown, this was a quick tap
                     if (!isPopupShown) {
@@ -386,19 +391,24 @@ class ImageViewActivity : AppCompatActivity() {
 
     private fun updateOptionDisplay() {
         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
-        optionTitle.text = currentFilterType.toString()
+        optionTitle.text = imageEditorViewModel.getFilterDisplayName(currentFilterType)
         updateOptionValueDisplay()
     }
 
     private fun updateOptionValueDisplay() {
         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
-        val maxValue = when (currentFilterType) {
-            FilterType.BRIGHTNESS -> 200f // Set max value for brightness to 200%
-            else -> 100f // Set the maximum ranges right here
+        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
+        val range = imageEditorViewModel.getFilterRange(currentFilterType)
+
+        // Calculate percentage for display
+        val percentage = if (range != null) {
+            val (min, max) = range
+            ((value - min) / (max - min) * 100).toInt()
+        } else {
+            value.toInt()
         }
 
-        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
-        optionValue.text = "${value}%"
+        optionValue.text = "$percentage%"
     }
 
     override fun onBackPressed() {
