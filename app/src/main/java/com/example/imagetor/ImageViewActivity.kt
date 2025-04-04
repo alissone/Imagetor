@@ -246,10 +246,7 @@ class ImageViewActivity : AppCompatActivity() {
                         val deltaY = event.y - startY
 
                         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
-                        val maxValue = when (currentFilterType) {
-                            FilterType.BRIGHTNESS -> 200f // Set max value for brightness to 200%
-                            else -> 100f // Default max value for other filters
-                        }
+                        val maxValue = FilterConstants.FILTER_MAX_LEVELS[currentFilterType] ?: 100f // Default to 100f if not found
 
                         // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {

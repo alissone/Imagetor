@@ -6,12 +6,6 @@ import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.example.imagetor.Constants.Companion.DEFAULT_BRIGHTNESS
-import com.example.imagetor.Constants.Companion.DEFAULT_CONTRAST
-import com.example.imagetor.Constants.Companion.DEFAULT_HUE
-import com.example.imagetor.Constants.Companion.DEFAULT_SATURATION
-import com.example.imagetor.Constants.Companion.DEFAULT_SHADOW
-import com.example.imagetor.Constants.Companion.DEFAULT_WHITE_BALANCE
 import jp.co.cyberagent.android.gpuimage.GPUImage
 import jp.co.cyberagent.android.gpuimage.filter.*
 
@@ -32,12 +26,12 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
 
     // Current filter values
     private val filterAmounts = mutableMapOf(
-        FilterType.BRIGHTNESS to DEFAULT_BRIGHTNESS,
-        FilterType.CONTRAST to DEFAULT_CONTRAST,
-        FilterType.SATURATION to DEFAULT_SATURATION,
-        FilterType.HUE to DEFAULT_HUE,
-        FilterType.SHADOW to DEFAULT_SHADOW,
-        FilterType.WHITE_BALANCE to DEFAULT_WHITE_BALANCE
+        FilterType.BRIGHTNESS to FilterConstants.Defaults.BRIGHTNESS,
+        FilterType.CONTRAST to FilterConstants.Defaults.CONTRAST,
+        FilterType.SATURATION to FilterConstants.Defaults.SATURATION,
+        FilterType.HUE to FilterConstants.Defaults.HUE,
+        FilterType.SHADOW to FilterConstants.Defaults.SHADOW,
+        FilterType.WHITE_BALANCE to FilterConstants.Defaults.WHITE_BALANCE
     )
 
 
@@ -63,12 +57,12 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
 
     // Reset all filters to default values
     fun resetFilters() {
-        filterAmounts[FilterType.BRIGHTNESS] = DEFAULT_BRIGHTNESS
-        filterAmounts[FilterType.CONTRAST] = DEFAULT_CONTRAST
-        filterAmounts[FilterType.SATURATION] = DEFAULT_SATURATION
-        filterAmounts[FilterType.HUE] = DEFAULT_HUE
-        filterAmounts[FilterType.SHADOW] = DEFAULT_SHADOW
-        filterAmounts[FilterType.WHITE_BALANCE] = DEFAULT_WHITE_BALANCE
+        filterAmounts[FilterType.BRIGHTNESS] = FilterConstants.Defaults.BRIGHTNESS
+        filterAmounts[FilterType.CONTRAST] = FilterConstants.Defaults.CONTRAST
+        filterAmounts[FilterType.SATURATION] = FilterConstants.Defaults.SATURATION
+        filterAmounts[FilterType.HUE] = FilterConstants.Defaults.HUE
+        filterAmounts[FilterType.SHADOW] = FilterConstants.Defaults.SHADOW
+        filterAmounts[FilterType.WHITE_BALANCE] = FilterConstants.Defaults.WHITE_BALANCE
 
         _filterValues.value = filterAmounts.toMap()
         processBitmap()
@@ -106,30 +100,30 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     private fun applyFilters() {
         val filters = mutableListOf<GPUImageFilter>()
 
-        if (filterAmounts[FilterType.BRIGHTNESS] != 0.0f) {
+        if (filterAmounts[FilterType.BRIGHTNESS] != FilterConstants.Defaults.BRIGHTNESS) {
             filters.add(GPUImageBrightnessFilter(
                     (filterAmounts[FilterType.BRIGHTNESS]!! / 100) - 1
                 ))
         }
 
-        if (filterAmounts[FilterType.CONTRAST] != 0.0f) {
+        if (filterAmounts[FilterType.CONTRAST] != FilterConstants.Defaults.CONTRAST) {
             filters.add(GPUImageContrastFilter(filterAmounts[FilterType.CONTRAST]!!))
         }
 
-        if (filterAmounts[FilterType.SATURATION] != 1.0f) {
+        if (filterAmounts[FilterType.SATURATION] != FilterConstants.Defaults.SATURATION) {
             filters.add(GPUImageSaturationFilter(filterAmounts[FilterType.SATURATION]!!))
         }
 
-        if (filterAmounts[FilterType.HUE] != 0.0f) {
+        if (filterAmounts[FilterType.HUE] != FilterConstants.Defaults.HUE) {
             filters.add(GPUImageHueFilter(filterAmounts[FilterType.HUE]!!))
         }
 
-        if (filterAmounts[FilterType.SHADOW] != 0.5f) {
+        if (filterAmounts[FilterType.SHADOW] != FilterConstants.Defaults.SHADOW) {
             val shadowValue = (filterAmounts[FilterType.SHADOW]!! - 0.5f) * 2
             filters.add(GPUImageContrastFilter(1 + shadowValue))
         }
 
-        if (filterAmounts[FilterType.WHITE_BALANCE] != 0.5f) {
+        if (filterAmounts[FilterType.WHITE_BALANCE] != FilterConstants.Defaults.WHITE_BALANCE) {
             val wbValue = (filterAmounts[FilterType.WHITE_BALANCE]!! - 0.5f) * 2
             filters.add(GPUImageWhiteBalanceFilter(5000 + wbValue * 3000, 1.0f))
         }
