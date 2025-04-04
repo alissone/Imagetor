@@ -23,6 +23,7 @@ import androidx.lifecycle.ViewModelProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.abs
+import kotlin.math.max
 
 
 class ImageViewActivity : AppCompatActivity() {
@@ -244,12 +245,18 @@ class ImageViewActivity : AppCompatActivity() {
                         val deltaX = event.x - startX
                         val deltaY = event.y - startY
 
+                        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+                        val maxValue = when (currentFilterType) {
+                            FilterType.BRIGHTNESS -> 200f // Set max value for brightness to 200%
+                            else -> 100f // Default max value for other filters
+                        }
+
                         // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
                             val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
                             val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
                             val change = (deltaX / 10).toInt().toFloat()
-                            val newValue = (currentVal + change).coerceIn(0f, 100f)
+                            val newValue = (currentVal + change).coerceIn(0f, maxValue)
                             imageEditorViewModel.updateFilter(currentFilterType, newValue)
                             updateOptionValueDisplay()
 
