@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.View
@@ -25,21 +24,23 @@ import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.max
 
-
 class ImageViewActivity : AppCompatActivity() {
 
     private lateinit var toggleButton: ToggleButton
     private lateinit var imageContainer: FrameLayout
     private lateinit var originalImageView: ImageView
     private lateinit var modifiedImageView: ImageView
-    private lateinit var hueSeekBar: SeekBar
-    private lateinit var brightnessSeekBar: SeekBar
-    private lateinit var contrastSeekBar: SeekBar
-    private lateinit var saturationSeekBar: SeekBar
     private lateinit var selectImageButton: LinearLayout
     private lateinit var saveImageButton: LinearLayout
     private lateinit var resetControlsButton: LinearLayout
 
+    // Single dynamic seekbar components
+    private lateinit var filterSeekBar: SeekBar
+    private lateinit var filterNameLabel: TextView
+    private lateinit var filterValueLabel: TextView
+    private lateinit var filterControlsContainer: LinearLayout
+    private lateinit var prevFilterButton: ImageView
+    private lateinit var nextFilterButton: ImageView
 
     // UI Components for popup
     private lateinit var optionsPopup: LinearLayout
@@ -78,19 +79,26 @@ class ImageViewActivity : AppCompatActivity() {
 
         // Initially hide original image
         originalImageView.visibility = View.GONE
+
+        // Initialize filter controls with the first filter
+        updateFilterControls(0)
     }
 
     private fun initializeViews() {
         toggleButton = findViewById(R.id.toggleButton)
         originalImageView = findViewById(R.id.originalImageView)
         modifiedImageView = findViewById(R.id.modifiedImageView)
-        hueSeekBar = findViewById(R.id.hueSeekBar)
-        brightnessSeekBar = findViewById(R.id.brightnessSeekBar)
-        contrastSeekBar = findViewById(R.id.contrastSeekBar)
-        saturationSeekBar = findViewById(R.id.saturationSeekBar)
         selectImageButton = findViewById(R.id.selectImageButton)
         saveImageButton = findViewById(R.id.saveImageButton)
         resetControlsButton = findViewById(R.id.reset_button)
+
+        // Initialize single seekbar components
+        filterSeekBar = findViewById(R.id.filterSeekBar)
+        filterNameLabel = findViewById(R.id.filterNameLabel)
+        filterValueLabel = findViewById(R.id.filterValueLabel)
+        filterControlsContainer = findViewById(R.id.filterControlsContainer)
+        prevFilterButton = findViewById(R.id.prevFilterButton)
+        nextFilterButton = findViewById(R.id.nextFilterButton)
 
         // Initialize popup UI components
         optionsPopup = findViewById(R.id.optionsPopup)
@@ -118,37 +126,50 @@ class ImageViewActivity : AppCompatActivity() {
 
         // Observe filter values for UI updates
         imageEditorViewModel.filterValues.observe(this) { filterValues ->
-            // Update seekbars only if they're not being adjusted by user
-            updateSeekBarsFromViewModel(filterValues)
+            // Update seekbar only for the current filter type
+            updateSeekBarFromViewModel(filterValues)
         }
     }
 
-    private fun updateSeekBarsFromViewModel(filterValues: Map<FilterType, Float>) {
-        // Only update if the seekbar is not being touched by the user
-        filterValues[FilterType.BRIGHTNESS]?.let {
-            val progress = ((it + 1)).toInt()
-            if (brightnessSeekBar.progress != progress) {
-                brightnessSeekBar.progress = progress
-            }
-        }
+    private fun updateSeekBarFromViewModel(filterValues: Map<FilterType, Float>) {
+        // Get current filter type
+        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
 
-        filterValues[FilterType.CONTRAST]?.let {
-            val progress = ((it + 0.6) * 100).toInt()
-            if (contrastSeekBar.progress != progress) {
-                contrastSeekBar.progress = progress
-            }
-        }
+        // Update the seekbar for the current filter
+        filterValues[currentFilterType]?.let { value ->
+            when (currentFilterType) {
+                FilterType.BRIGHTNESS -> {
+                    val progress = ((value + 1) * 100).toInt()
+                    if (filterSeekBar.progress != progress) {
+                        filterSeekBar.progress = progress
+                    }
+                    val percentage = ((value + 1) * 50).toInt()
+                    filterValueLabel.text = "$percentage%"
+                }
+                FilterType.CONTRAST -> {
+                    val progress = ((value + 0.6) * 100).toInt()
+                    if (filterSeekBar.progress != progress) {
+                        filterSeekBar.progress = progress
+                    }
+                    filterValueLabel.text = "$progress%"
+                }
+                FilterType.SATURATION -> {
+                    val progress = (value * 200).toInt()
+                    if (filterSeekBar.progress != progress) {
+                        filterSeekBar.progress = progress
+                    }
+                    filterValueLabel.text = "$progress%"
+                }
+                FilterType.HUE -> {
+                    val progress = value.toInt()
+                    if (filterSeekBar.progress != progress) {
+                        filterSeekBar.progress = progress
+                    }
+                    filterValueLabel.text = "$progress°"
+                }
 
-        filterValues[FilterType.SATURATION]?.let {
-            val progress = (it * 200).toInt()
-            if (saturationSeekBar.progress != progress) {
-                saturationSeekBar.progress = progress
-            }
-        }
-
-        filterValues[FilterType.HUE]?.let {
-            if (hueSeekBar.progress != it.toInt()) {
-                hueSeekBar.progress = it.toInt()
+                FilterType.SHADOW -> TODO()
+                FilterType.WHITE_BALANCE -> TODO()
             }
         }
     }
@@ -176,46 +197,55 @@ class ImageViewActivity : AppCompatActivity() {
             } ?: Toast.makeText(this, "No image to save", Toast.LENGTH_SHORT).show()
         }
 
-        resetControlsButton.setOnClickListener { imageEditorViewModel.resetFilters() }
+        resetControlsButton.setOnClickListener {
+            imageEditorViewModel.resetFilters()
+            updateFilterControls(currentOption)
+        }
 
-        // Brightness SeekBar
-        brightnessSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        // Set up navigation buttons for filter types
+        prevFilterButton.setOnClickListener {
+            val filterTypes = imageEditorViewModel.getFilterTypes()
+            currentOption = (currentOption - 1 + filterTypes.size) % filterTypes.size
+            updateFilterControls(currentOption)
+        }
+
+        nextFilterButton.setOnClickListener {
+            val filterTypes = imageEditorViewModel.getFilterTypes()
+            currentOption = (currentOption + 1) % filterTypes.size
+            updateFilterControls(currentOption)
+        }
+
+        // Single dynamic SeekBar listener
+        filterSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    imageEditorViewModel.updateFilter(FilterType.BRIGHTNESS, progress.toFloat())
-                }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+                    val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
 
-        // Contrast SeekBar
-        contrastSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    imageEditorViewModel.updateFilter(FilterType.CONTRAST, ((progress.toFloat() / 100) - 0.6).toFloat())
-                }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+                    // Convert progress to appropriate filter value based on filter type
+                    val filterValue = when (currentFilterType) {
+                        FilterType.BRIGHTNESS -> {
+                            val value = progress.toFloat() / 100
+                            filterValueLabel.text = "${(value * 50).toInt()}%"
+                            value - 1f // Map 0-200 to -1 to 1
+                        }
+                        FilterType.CONTRAST -> {
+                            filterValueLabel.text = "$progress%"
+                            (progress.toFloat() / 100) - 0.6f // Map to appropriate contrast range
+                        }
+                        FilterType.SATURATION -> {
+                            filterValueLabel.text = "$progress%"
+                            progress.toFloat() / 200 // Map 0-200 to 0-1
+                        }
+                        FilterType.HUE -> {
+                            filterValueLabel.text = "$progress°"
+                            progress.toFloat() // Direct mapping for hue
+                        }
 
-        // Saturation SeekBar
-        saturationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    imageEditorViewModel.updateFilter(FilterType.SATURATION, (progress.toFloat() / 200).toFloat())
-                }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+                        FilterType.SHADOW -> TODO()
+                        FilterType.WHITE_BALANCE -> TODO()
+                    }
 
-        // Hue SeekBar
-        hueSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    imageEditorViewModel.updateFilter(FilterType.HUE, progress.toFloat())
+                    imageEditorViewModel.updateFilter(currentFilterType, filterValue)
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -298,6 +328,48 @@ class ImageViewActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateFilterControls(filterIndex: Int) {
+        val filterTypes = imageEditorViewModel.getFilterTypes()
+        if (filterIndex in filterTypes.indices) {
+            val filterType = filterTypes[filterIndex]
+
+            // Update label
+            filterNameLabel.text = filterType.name
+            filterValueLabel.text = "${imageEditorViewModel.getFilterValue(filterType) ?: 0f}%"
+
+            // Configure seekbar for the selected filter type
+            when (filterType) {
+                FilterType.BRIGHTNESS -> {
+                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
+                    filterSeekBar.max = 200
+                    filterSeekBar.progress = ((value + 1) * 100).toInt()
+                    filterValueLabel.text = "${((value + 1) * 50).toInt()}%"
+                }
+                FilterType.CONTRAST -> {
+                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
+                    filterSeekBar.max = 200
+                    filterSeekBar.progress = ((value + 0.6) * 100).toInt()
+                    filterValueLabel.text = "${filterSeekBar.progress}%"
+                }
+                FilterType.SATURATION -> {
+                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
+                    filterSeekBar.max = 200
+                    filterSeekBar.progress = (value * 200).toInt()
+                    filterValueLabel.text = "${filterSeekBar.progress}%"
+                }
+                FilterType.HUE -> {
+                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
+                    filterSeekBar.max = 360
+                    filterSeekBar.progress = value.toInt()
+                    filterValueLabel.text = "${filterSeekBar.progress}°"
+                }
+
+                FilterType.SHADOW -> TODO()
+                FilterType.WHITE_BALANCE -> TODO()
+            }
+        }
+    }
+
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         startActivityForResult(intent, PICK_IMAGE_REQUEST)
@@ -317,6 +389,9 @@ class ImageViewActivity : AppCompatActivity() {
 
                 // Reset filters
                 imageEditorViewModel.resetFilters()
+
+                // Update UI
+                updateFilterControls(currentOption)
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
