@@ -5,9 +5,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -52,6 +55,11 @@ class ImageViewActivity : AppCompatActivity() {
     private var startX = 0f
     private var startY = 0f
     private var currentOption = 0
+
+    private val POPUP_HIDE_DELAY = 1000L  // 1 second
+    private var hidePopupRunnable: Runnable? = null
+
+    private val handler = Handler(Looper.getMainLooper())
 
     // ViewModel
     private lateinit var imageEditorViewModel: ImageEditorViewModel
@@ -127,50 +135,39 @@ class ImageViewActivity : AppCompatActivity() {
         // Observe filter values for UI updates
         imageEditorViewModel.filterValues.observe(this) { filterValues ->
             // Update seekbar only for the current filter type
+            // TODO: All filter values are updated this way! Only update one please
             updateSeekBarFromViewModel(filterValues)
         }
+        // Observe filter values for UI updates
+        imageEditorViewModel.filterValues.observe(this) { filterValues ->
+            // Update seekbar for the current filter type
+            updateSeekBarFromViewModel(filterValues)
+
+            // Also update popup if it's showing
+            if (isPopupShown) {
+                updateOptionValueDisplay(currentOption)
+            }
+        }
     }
+
 
     private fun updateSeekBarFromViewModel(filterValues: Map<FilterType, Float>) {
         // Get current filter type
         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+        filterNameLabel.text = imageEditorViewModel.getFilterName(currentOption)
 
         // Update the seekbar for the current filter
         filterValues[currentFilterType]?.let { value ->
-            when (currentFilterType) {
-                FilterType.BRIGHTNESS -> {
-                    val progress = ((value + 1) * 100).toInt()
-                    if (filterSeekBar.progress != progress) {
-                        filterSeekBar.progress = progress
-                    }
-                    val percentage = ((value + 1) * 50).toInt()
-                    filterValueLabel.text = "$percentage%"
-                }
-                FilterType.CONTRAST -> {
-                    val progress = ((value + 0.6) * 100).toInt()
-                    if (filterSeekBar.progress != progress) {
-                        filterSeekBar.progress = progress
-                    }
-                    filterValueLabel.text = "$progress%"
-                }
-                FilterType.SATURATION -> {
-                    val progress = (value * 200).toInt()
-                    if (filterSeekBar.progress != progress) {
-                        filterSeekBar.progress = progress
-                    }
-                    filterValueLabel.text = "$progress%"
-                }
-                FilterType.HUE -> {
-                    val progress = value.toInt()
-                    if (filterSeekBar.progress != progress) {
-                        filterSeekBar.progress = progress
-                    }
-                    filterValueLabel.text = "$progress°"
-                }
+            // Convert model value to progress (0-100)
+            val progress = imageEditorViewModel.filterValueToProgress(currentFilterType, value)
 
-                FilterType.SHADOW -> TODO()
-                FilterType.WHITE_BALANCE -> TODO()
+            // Update seekbar if needed
+            if (filterSeekBar.progress != progress) {
+                filterSeekBar.progress = progress
             }
+
+            // Get formatted display value
+            filterValueLabel.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, value)
         }
     }
 
@@ -181,12 +178,16 @@ class ImageViewActivity : AppCompatActivity() {
             openImagePicker()
         }
 
-        // Toggle button for original/modified view
         toggleButton.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 showOriginalImageOnly()
             } else {
                 showModifiedImageOnly()
+            }
+
+            // Hide popup when toggling between views
+            if (isPopupShown) {
+                hideOptionsPopup()
             }
         }
 
@@ -215,36 +216,23 @@ class ImageViewActivity : AppCompatActivity() {
             updateFilterControls(currentOption)
         }
 
-        // Single dynamic SeekBar listener
+        // Update the SeekBar listener
         filterSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+                    // Convert progress to filter value
+                    val filterValue = imageEditorViewModel.progressToFilterValue(currentFilterType, progress)
 
-                    // Convert progress to appropriate filter value based on filter type
-                    val filterValue = when (currentFilterType) {
-                        FilterType.BRIGHTNESS -> {
-                            val value = progress.toFloat() / 100
-                            filterValueLabel.text = "${(value * 50).toInt()}%"
-                            value - 1f // Map 0-200 to -1 to 1
-                        }
-                        FilterType.CONTRAST -> {
-                            filterValueLabel.text = "$progress%"
-                            (progress.toFloat() / 100) - 0.6f // Map to appropriate contrast range
-                        }
-                        FilterType.SATURATION -> {
-                            filterValueLabel.text = "$progress%"
-                            progress.toFloat() / 200 // Map 0-200 to 0-1
-                        }
-                        FilterType.HUE -> {
-                            filterValueLabel.text = "$progress°"
-                            progress.toFloat() // Direct mapping for hue
-                        }
+                    // Update the seekbar value display
+                    filterValueLabel.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, filterValue)
 
-                        FilterType.SHADOW -> TODO()
-                        FilterType.WHITE_BALANCE -> TODO()
+                    // Update the popup value display if it's showing
+                    if (isPopupShown) {
+                        updateOptionValueDisplay(currentOption)
                     }
 
+                    // Update the filter
                     imageEditorViewModel.updateFilter(currentFilterType, filterValue)
                 }
             }
@@ -260,6 +248,9 @@ class ImageViewActivity : AppCompatActivity() {
                     startX = event.x
                     startY = event.y
 
+                    // Cancel any pending hide operations when user touches the screen
+                    hidePopupRunnable?.let { handler.removeCallbacks(it) }
+
                     // Start a delayed action for long press
                     view.postDelayed({
                         if (!isPopupShown) {
@@ -270,6 +261,9 @@ class ImageViewActivity : AppCompatActivity() {
                 }
 
                 MotionEvent.ACTION_MOVE -> {
+
+//                    hidePopupRunnable?.let { handler.removeCallbacks(it) }
+
                     if (isPopupShown) {
                         // Calculate how far the finger has moved
                         val deltaX = event.x - startX
@@ -277,21 +271,24 @@ class ImageViewActivity : AppCompatActivity() {
 
                         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
 
-                        // Get the min and max values for the current filter
-                        val (minValue, maxValue) = imageEditorViewModel.getFilterRange(currentFilterType) ?: Pair(0f, 100f)
-
                         // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
                             val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
 
-                            // Scale the change based on the filter's range
-                            val filterRange = maxValue - minValue
-                            val change = (deltaX / 10) * (filterRange / 100f) // Scale factor to make movement appropriate
+                            // Get the current progress value (0-100)
+                            val currentProgress = imageEditorViewModel.filterValueToProgress(currentFilterType, currentVal)
 
-                            // Apply the change and ensure it stays within bounds
-                            val newValue = (currentVal + change).coerceIn(minValue, maxValue)
+                            // Calculate new progress based on swipe distance
+                            // Adjust sensitivity as needed
+                            val progressChange = (deltaX / MIN_SWIPE_DISTANCE * 10).toInt()
+                            val newProgress = (currentProgress + progressChange).coerceIn(0, 100)
+
+                            // Convert back to filter value and update
+                            val newValue = imageEditorViewModel.progressToFilterValue(currentFilterType, newProgress)
                             imageEditorViewModel.updateFilter(currentFilterType, newValue)
-                            updateOptionValueDisplay()
+
+                            // Update display
+                            updateOptionValueDisplay(currentOption)
 
                             // Reset start position for continuous adjustment
                             startX = event.x
@@ -316,57 +313,46 @@ class ImageViewActivity : AppCompatActivity() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    // If popup not shown, this was a quick tap
                     if (!isPopupShown) {
+                        // If popup not shown, remove pending callbacks
                         view.removeCallbacks(null)
+                    } else {
+                        // Schedule popup to hide after delay
+                        scheduleHidePopup()
                     }
                     true
                 }
-
                 else -> false
             }
         }
     }
 
-    private fun updateFilterControls(filterIndex: Int) {
+    private fun scheduleHidePopup() {
+        // Cancel any existing hide operation
+        hidePopupRunnable?.let { handler.removeCallbacks(it) }
+
+        // Create new runnable for hiding
+        hidePopupRunnable = Runnable {
+            hideOptionsPopup()
+        }
+
+        // Schedule the hide operation
+        handler.postDelayed(hidePopupRunnable!!, POPUP_HIDE_DELAY)
+    }
+
+    private fun updateFilterControls(currentOptionIndex: Int) {
         val filterTypes = imageEditorViewModel.getFilterTypes()
-        if (filterIndex in filterTypes.indices) {
-            val filterType = filterTypes[filterIndex]
+        if (currentOptionIndex in filterTypes.indices) {
+            val currentFilterType = filterTypes[currentOptionIndex]
+            val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
 
-            // Update label
-            filterNameLabel.text = filterType.name
-            filterValueLabel.text = "${imageEditorViewModel.getFilterValue(filterType) ?: 0f}%"
+            // Convert to progress
+            val progress = imageEditorViewModel.filterValueToProgress(currentFilterType, value)
 
-            // Configure seekbar for the selected filter type
-            when (filterType) {
-                FilterType.BRIGHTNESS -> {
-                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
-                    filterSeekBar.max = 200
-                    filterSeekBar.progress = ((value + 1) * 100).toInt()
-                    filterValueLabel.text = "${((value + 1) * 50).toInt()}%"
-                }
-                FilterType.CONTRAST -> {
-                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
-                    filterSeekBar.max = 200
-                    filterSeekBar.progress = ((value + 0.6) * 100).toInt()
-                    filterValueLabel.text = "${filterSeekBar.progress}%"
-                }
-                FilterType.SATURATION -> {
-                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
-                    filterSeekBar.max = 200
-                    filterSeekBar.progress = (value * 200).toInt()
-                    filterValueLabel.text = "${filterSeekBar.progress}%"
-                }
-                FilterType.HUE -> {
-                    val value = imageEditorViewModel.getFilterValue(filterType) ?: 0f
-                    filterSeekBar.max = 360
-                    filterSeekBar.progress = value.toInt()
-                    filterValueLabel.text = "${filterSeekBar.progress}°"
-                }
-
-                FilterType.SHADOW -> TODO()
-                FilterType.WHITE_BALANCE -> TODO()
-            }
+            // Update filter bar
+            filterSeekBar.progress = progress
+            filterValueLabel.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, value)
+            filterNameLabel.text = imageEditorViewModel.getFilterName(currentOptionIndex)
         }
     }
 
@@ -446,6 +432,9 @@ class ImageViewActivity : AppCompatActivity() {
     private fun showOptionsPopup() {
         isPopupShown = true
 
+        // Cancel any pending hide operations
+        hidePopupRunnable?.let { handler.removeCallbacks(it) }
+
         // Set the initial option to display
         updateOptionDisplay()
 
@@ -456,41 +445,53 @@ class ImageViewActivity : AppCompatActivity() {
     }
 
     private fun hideOptionsPopup() {
+        if (!isPopupShown) return
+
         isPopupShown = false
 
         // Animate the popup disappearing
         val animation = AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
         optionsPopup.startAnimation(animation)
-        optionsPopup.visibility = View.GONE
+        animation.setAnimationListener(object : Animation.AnimationListener {
+            override fun onAnimationStart(animation: Animation?) {}
+            override fun onAnimationEnd(animation: Animation?) {
+                optionsPopup.visibility = View.GONE
+            }
+            override fun onAnimationRepeat(animation: Animation?) {}
+        })
     }
 
     private fun updateOptionDisplay() {
         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
         optionTitle.text = imageEditorViewModel.getFilterDisplayName(currentFilterType)
-        updateOptionValueDisplay()
+        updateOptionValueDisplay(currentOption)
     }
 
-    private fun updateOptionValueDisplay() {
-        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
+    private fun calculateFilterValueDisplay(currentOptionIndex: Int): Int {
+        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOptionIndex]
         val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
-        val range = imageEditorViewModel.getFilterRange(currentFilterType)
-
-        // Calculate percentage for display
-        val percentage = if (range != null) {
-            val (min, max) = range
-            ((value - min) / (max - min) * 100).toInt()
-        } else {
-            value.toInt()
-        }
-
-        optionValue.text = "$percentage%"
+        return imageEditorViewModel.filterValueToProgress(currentFilterType, value)
     }
 
+    private fun updateOptionValueDisplay(currentOptionIndex: Int) {
+        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOptionIndex]
+        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
+        optionValue.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, value)
+    }
     override fun onBackPressed() {
         if (isPopupShown) {
             hideOptionsPopup()
         } else {
             super.onBackPressed()
+        }
+    }
+
+
+    // Override onPause to hide popup when activity pauses
+    override fun onPause() {
+        super.onPause()
+        if (isPopupShown) {
+            hideOptionsPopup()
         }
     }
 }

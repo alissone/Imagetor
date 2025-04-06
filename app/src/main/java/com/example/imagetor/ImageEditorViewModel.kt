@@ -1,4 +1,5 @@
 package com.example.imagetor
+
 import android.app.Application
 import android.graphics.Bitmap
 import android.os.Handler
@@ -71,6 +72,11 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         return filters.map { it.type }
     }
 
+    fun getFilterName(optionIndex: Int): String {
+        var names = arrayOf("Brightness", "Contrast", "Saturation", "Hue", "Shadow", "White_balance")
+        return names[optionIndex]
+    }
+
     // Get current value for a specific filter
     fun getFilterValue(filterType: FilterType): Float? {
         return filters.find { it.type == filterType }?.currentValue
@@ -108,7 +114,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     // Apply all active filters to the bitmap
-    // Apply all active filters to the bitmap
     private fun applyFilters() {
         // Get only filters that should be applied
         val activeFilters = filters.filter { it.shouldApply() }
@@ -132,4 +137,40 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         super.onCleared()
         pendingFilterRunnable?.let { handler.removeCallbacks(it) }
     }
+
+
+    /**
+     * Converts a filter value to seekbar progress (0-100)
+     */
+    fun filterValueToProgress(filterType: FilterType, value: Float): Int {
+        val (min, max) = getFilterRange(filterType) ?: return 0
+        return ((value - min) / (max - min) * 100).toInt()
+    }
+
+    /**
+     * Converts seekbar progress (0-100) to a filter value
+     */
+    fun progressToFilterValue(filterType: FilterType, progress: Int): Float {
+        val (min, max) = getFilterRange(filterType) ?: return 0f
+        return min + (progress / 100f) * (max - min)
+    }
+
+    /**
+     * Gets the appropriate suffix for the filter value display
+     */
+    fun getFilterValueSuffix(filterType: FilterType): String {
+        return when (filterType) {
+            FilterType.HUE -> "°"
+            else -> "%"
+        }
+    }
+
+    /**
+     * Gets a formatted display string for a filter value
+     */
+    fun getFilterValueDisplay(filterType: FilterType, value: Float): String {
+        val progress = filterValueToProgress(filterType, value)
+        return "$progress${getFilterValueSuffix(filterType)}"
+    }
+
 }
