@@ -10,6 +10,8 @@ import androidx.lifecycle.MutableLiveData
 import jp.co.cyberagent.android.gpuimage.GPUImage
 import jp.co.cyberagent.android.gpuimage.filter.*
 
+private const val touchEventInterval = 100L
+
 class ImageEditorViewModel(application: Application) : AndroidViewModel(application) {
 
     // LiveData for UI updates
@@ -110,7 +112,7 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
             applyFilters()
         }
 
-        handler.postDelayed(pendingFilterRunnable!!, 100)
+        handler.postDelayed(pendingFilterRunnable!!, touchEventInterval)
     }
 
     // Apply all active filters to the bitmap
@@ -144,7 +146,7 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
      */
     fun filterValueToProgress(filterType: FilterType, value: Float): Int {
         val (min, max) = getFilterRange(filterType) ?: return 0
-        return ((value - min) / (max - min) * 100).toInt()
+        return ((value - min) / (max - min) * 100L).toInt()
     }
 
     /**

@@ -65,8 +65,10 @@ class ImageViewActivity : AppCompatActivity() {
     private lateinit var imageEditorViewModel: ImageEditorViewModel
 
     // Constants
-    private val LONG_PRESS_THRESHOLD = 100L
-    private val MIN_SWIPE_DISTANCE = 140f
+    private val LONG_PRESS_THRESHOLD = 100L // Time needed to make popup appear
+    private val MIN_SWIPE_DISTANCE_H = 50f // Min. Distance needed to make a change in one of the filters
+    private val MIN_SWIPE_DISTANCE_V = 140f // Min. Distance to swipe to change filter, vertically
+    private val PROGRESS_STEPS_SIZE = 1 // Percentage that increases/decreases per pixel when swiping left/right
 
     companion object {
         private const val PICK_IMAGE_REQUEST = 1
@@ -272,7 +274,7 @@ class ImageViewActivity : AppCompatActivity() {
                         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOption]
 
                         // Handle horizontal swipe - adjust value
-                        if (abs(deltaX) > MIN_SWIPE_DISTANCE) {
+                        if (abs(deltaX) > MIN_SWIPE_DISTANCE_H) {
                             val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
 
                             // Get the current progress value (0-100)
@@ -280,7 +282,7 @@ class ImageViewActivity : AppCompatActivity() {
 
                             // Calculate new progress based on swipe distance
                             // Adjust sensitivity as needed
-                            val progressChange = (deltaX / MIN_SWIPE_DISTANCE * 10).toInt()
+                            val progressChange = (deltaX / MIN_SWIPE_DISTANCE_H * PROGRESS_STEPS_SIZE).toInt()
                             val newProgress = (currentProgress + progressChange).coerceIn(0, 100)
 
                             // Convert back to filter value and update
@@ -295,7 +297,7 @@ class ImageViewActivity : AppCompatActivity() {
                         }
 
                         // Handle vertical swipe - change option
-                        if (abs(deltaY) > MIN_SWIPE_DISTANCE) {
+                        if (abs(deltaY) > MIN_SWIPE_DISTANCE_V) {
                             val filterTypes = imageEditorViewModel.getFilterTypes()
                             if (deltaY > 0) {
                                 // Swipe down - next option
