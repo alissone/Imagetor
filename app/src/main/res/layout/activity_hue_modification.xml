@@ -67,7 +67,7 @@
                     android:id="@+id/prevFilterButton"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_launcher_foreground"
+                    android:src="@drawable/baseline_arrow_left_24"
                     app:tint="#FFFFFF" />
 
                 <TextView
@@ -93,7 +93,7 @@
                     android:id="@+id/nextFilterButton"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_launcher_foreground"
+                    android:src="@drawable/baseline_arrow_right_24"
                     app:tint="#FFFFFF" />
             </LinearLayout>
 
