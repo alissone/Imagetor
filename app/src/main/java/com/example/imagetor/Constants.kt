@@ -1,10 +1,14 @@
 package com.example.imagetor
 
+import android.graphics.PointF
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageBrightnessFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageContrastFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageHighlightShadowFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageHueFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageSaturationFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageVibranceFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageVignetteFilter
 import jp.co.cyberagent.android.gpuimage.filter.GPUImageWhiteBalanceFilter
 
 // Core filter interface that all filters must implement (only works for GPUImage filters for now)
@@ -20,7 +24,7 @@ interface Filter {
 }
 
 enum class FilterType {
-    BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE
+    BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE, GAMMA, VIGNETTE, VIBRANCE
 }
 
 sealed class ImageFilters {
@@ -70,6 +74,73 @@ sealed class ImageFilters {
         override fun createGPUFilter() = GPUImageHueFilter(currentValue)
     }
 
+//    class HighlightFilter : Filter {
+//        override val type = FilterType.HIGHLIGHTS
+//        override var currentValue = 0.5f
+//        override val defaultValue = 0.5f
+//        override val minValue = 0f
+//        override val maxValue = 1f
+//        override val displayName = "Highlights"
+//
+//        override fun createGPUFilter(): GPUImageFilter {
+//            val shadowValue = (currentValue - 0.5f) * 2
+//            return GPUImageHighlightShadowFilter(highLight)
+//        }
+//    }
+
+    class VibranceFiter : Filter {
+        override val type = FilterType.SHADOW
+        override var currentValue = 0.5f
+        override val defaultValue = 0.5f
+        override val minValue = 0f
+        override val maxValue = 1.0f
+        override val displayName = "Vibrance"
+
+        override fun createGPUFilter(): GPUImageFilter {
+            val value = (currentValue - 0.5f) * 2
+            return GPUImageVibranceFilter(1 + value)
+        }
+    }
+
+    class VignetteFilter : Filter {
+        override val type = FilterType.SHADOW
+        override var currentValue = 0.5f
+        override val defaultValue = 0.5f
+        override val minValue = 0f
+        override val maxValue = 2.0f
+        override val displayName = "Vignette"
+
+        override fun createGPUFilter(): GPUImageFilter {
+            val value = (currentValue - 0.5f) * 2
+            return GPUImageVignetteFilter(PointF(100f,100f), floatArrayOf(0.5f), 0.5f, 0.5f)
+        }
+    }
+    class HazeFilter : Filter {
+        override val type = FilterType.SHADOW
+        override var currentValue = 0.5f
+        override val defaultValue = 0.5f
+        override val minValue = 0f
+        override val maxValue = 2.0f
+        override val displayName = "Haze"
+
+        override fun createGPUFilter(): GPUImageFilter {
+            val value = (currentValue - 0.5f) * 2
+            return GPUImageVibranceFilter(1 + value)
+        }
+    }
+    class GammaFilter : Filter {
+        override val type = FilterType.SHADOW
+        override var currentValue = 0.5f
+        override val defaultValue = 0.5f
+        override val minValue = 0f
+        override val maxValue = 2.2f
+        override val displayName = "Gamma"
+
+        override fun createGPUFilter(): GPUImageFilter {
+            val shadowValue = (currentValue - 0.5f) * 2
+            return GPUImageContrastFilter(1 + shadowValue)
+        }
+    }
     class ShadowFilter : Filter {
         override val type = FilterType.SHADOW
         override var currentValue = 0.5f
@@ -107,6 +178,9 @@ sealed class ImageFilters {
                 FilterType.HUE -> HueFilter()
                 FilterType.SHADOW -> ShadowFilter()
                 FilterType.WHITE_BALANCE -> WhiteBalanceFilter()
+                FilterType.GAMMA -> GammaFilter()
+                FilterType.VIGNETTE -> VignetteFilter()
+                FilterType.VIBRANCE -> VibranceFiter()
             }
         }
 

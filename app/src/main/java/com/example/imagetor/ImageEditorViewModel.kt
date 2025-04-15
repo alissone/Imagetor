@@ -75,7 +75,7 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun getFilterName(optionIndex: Int): String {
-        var names = arrayOf("Brightness", "Contrast", "Saturation", "Hue", "Shadow", "White_balance")
+        var names = arrayOf("Brightness", "Contrast", "Saturation", "Hue", "Shadow", "White_balance", "Gamma", "Vibrancy", "Vignette")
         return names[optionIndex]
     }
 
