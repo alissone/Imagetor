@@ -12,20 +12,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.SeekBar
-import android.widget.TextView
-import android.widget.Toast
-import android.widget.ToggleButton
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.abs
-import kotlin.math.max
 
 class ImageViewActivity : AppCompatActivity() {
 
@@ -136,12 +129,6 @@ class ImageViewActivity : AppCompatActivity() {
 
         // Observe filter values for UI updates
         imageEditorViewModel.filterValues.observe(this) { filterValues ->
-            // Update seekbar only for the current filter type
-            // TODO: All filter values are updated this way! Only update one please
-            updateSeekBarFromViewModel(filterValues)
-        }
-        // Observe filter values for UI updates
-        imageEditorViewModel.filterValues.observe(this) { filterValues ->
             // Update seekbar for the current filter type
             updateSeekBarFromViewModel(filterValues)
 
@@ -151,7 +138,6 @@ class ImageViewActivity : AppCompatActivity() {
             }
         }
     }
-
 
     private fun updateSeekBarFromViewModel(filterValues: Map<FilterType, Float>) {
         // Get current filter type
@@ -226,14 +212,6 @@ class ImageViewActivity : AppCompatActivity() {
                     // Convert progress to filter value
                     val filterValue = imageEditorViewModel.progressToFilterValue(currentFilterType, progress)
 
-                    // Update the seekbar value display
-                    filterValueLabel.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, filterValue)
-
-                    // Update the popup value display if it's showing
-                    if (isPopupShown) {
-                        updateOptionValueDisplay(currentOption)
-                    }
-
                     // Update the filter
                     imageEditorViewModel.updateFilter(currentFilterType, filterValue)
                 }
@@ -263,9 +241,6 @@ class ImageViewActivity : AppCompatActivity() {
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-
-//                    hidePopupRunnable?.let { handler.removeCallbacks(it) }
-
                     if (isPopupShown) {
                         // Calculate how far the finger has moved
                         val deltaX = event.x - startX
@@ -275,22 +250,18 @@ class ImageViewActivity : AppCompatActivity() {
 
                         // Handle horizontal swipe - adjust value
                         if (abs(deltaX) > MIN_SWIPE_DISTANCE_H) {
-                            val currentVal = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
+                            val currentVal = imageEditorViewModel.getFilterValue(currentFilterType)
 
                             // Get the current progress value (0-100)
                             val currentProgress = imageEditorViewModel.filterValueToProgress(currentFilterType, currentVal)
 
                             // Calculate new progress based on swipe distance
-                            // Adjust sensitivity as needed
                             val progressChange = (deltaX / MIN_SWIPE_DISTANCE_H * PROGRESS_STEPS_SIZE).toInt()
                             val newProgress = (currentProgress + progressChange).coerceIn(0, 100)
 
                             // Convert back to filter value and update
                             val newValue = imageEditorViewModel.progressToFilterValue(currentFilterType, newProgress)
                             imageEditorViewModel.updateFilter(currentFilterType, newValue)
-
-                            // Update display
-                            updateOptionValueDisplay(currentOption)
 
                             // Reset start position for continuous adjustment
                             startX = event.x
@@ -346,7 +317,7 @@ class ImageViewActivity : AppCompatActivity() {
         val filterTypes = imageEditorViewModel.getFilterTypes()
         if (currentOptionIndex in filterTypes.indices) {
             val currentFilterType = filterTypes[currentOptionIndex]
-            val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
+            val value = imageEditorViewModel.getFilterValue(currentFilterType)
 
             // Convert to progress
             val progress = imageEditorViewModel.filterValueToProgress(currentFilterType, value)
@@ -469,17 +440,12 @@ class ImageViewActivity : AppCompatActivity() {
         updateOptionValueDisplay(currentOption)
     }
 
-    private fun calculateFilterValueDisplay(currentOptionIndex: Int): Int {
-        val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOptionIndex]
-        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
-        return imageEditorViewModel.filterValueToProgress(currentFilterType, value)
-    }
-
     private fun updateOptionValueDisplay(currentOptionIndex: Int) {
         val currentFilterType = imageEditorViewModel.getFilterTypes()[currentOptionIndex]
-        val value = imageEditorViewModel.getFilterValue(currentFilterType) ?: 0f
+        val value = imageEditorViewModel.getFilterValue(currentFilterType)
         optionValue.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, value)
     }
+
     override fun onBackPressed() {
         if (isPopupShown) {
             hideOptionsPopup()
@@ -488,8 +454,6 @@ class ImageViewActivity : AppCompatActivity() {
         }
     }
 
-
-    // Override onPause to hide popup when activity pauses
     override fun onPause() {
         super.onPause()
         if (isPopupShown) {

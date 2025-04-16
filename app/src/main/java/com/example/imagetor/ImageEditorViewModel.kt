@@ -8,9 +8,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import jp.co.cyberagent.android.gpuimage.GPUImage
-import jp.co.cyberagent.android.gpuimage.filter.*
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilter
+import jp.co.cyberagent.android.gpuimage.filter.GPUImageFilterGroup
 
-private const val touchEventInterval = 100L
+private const val FILTER_PROCESSING_DELAY = 100L
 
 class ImageEditorViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -27,138 +28,148 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     // GPUImage instance for image processing
     private val gpuImage = GPUImage(application)
 
-    // Active filters
-    private val filters = ImageFilters.createAllFilters()
-
+    // Filter store - maintains all filter states
+    private val filterStore = FilterStore()
 
     // Handler for debouncing filter processing
     private val handler = Handler(Looper.getMainLooper())
     private var pendingFilterRunnable: Runnable? = null
 
-    // Set original bitmap and apply initial processing
+    /**
+     * Sets the original bitmap and applies initial filters
+     */
     fun setOriginalBitmap(bitmap: Bitmap) {
         _originalBitmap.value = bitmap
-
-        // Set the bitmap in GPUImage
         gpuImage.setImage(bitmap)
-
-        // Apply any current filters
-        processBitmap()
+        applyFilters()
     }
 
-    // Get the modified bitmap
+    /**
+     * Gets the current modified bitmap
+     */
     fun getModifiedBitmap(): Bitmap? {
         return _modifiedBitmap.value
     }
 
-    // Reset all filters to default values
+    /**
+     * Resets all filters to their default values
+     */
     fun resetFilters() {
-        filters.forEach { filter ->
-            filter.currentValue = filter.defaultValue
-        }
+        filterStore.resetAllFilters()
         updateFilterValuesMap()
-        processBitmap()
+        applyFilters()
     }
 
+    /**
+     * Updates a specific filter with a new value
+     */
     fun updateFilter(filterType: FilterType, value: Float) {
-        filters.find { it.type == filterType }?.let { filter ->
-            // Ensure value is within valid range
-            filter.currentValue = value.coerceIn(filter.minValue, filter.maxValue)
-            updateFilterValuesMap()
-            processBitmap()
-        }
+        val filter = filterStore.getFilter(filterType)
+        // Ensure value is within valid range
+        filter.currentValue = value.coerceIn(filter.minValue, filter.maxValue)
+        updateFilterValuesMap()
+        scheduleFilterProcessing()
     }
 
-    // Get all available filter types
+    /**
+     * Gets all available filter types
+     */
     fun getFilterTypes(): List<FilterType> {
-        return filters.map { it.type }
+        return FilterType.values().toList()
     }
 
+    /**
+     * Gets the display name for a filter based on index
+     */
     fun getFilterName(optionIndex: Int): String {
-        var names = arrayOf("Brightness", "Contrast", "Saturation", "Hue", "Shadow", "White_balance", "Gamma", "Vibrancy", "Vignette")
-        return names[optionIndex]
+        val filterType = getFilterTypes()[optionIndex]
+        return filterStore.getFilter(filterType).displayName
     }
 
-    // Get current value for a specific filter
-    fun getFilterValue(filterType: FilterType): Float? {
-        return filters.find { it.type == filterType }?.currentValue
+    /**
+     * Gets the current value for a specific filter
+     */
+    fun getFilterValue(filterType: FilterType): Float {
+        return filterStore.getFilter(filterType).currentValue
     }
 
-    // Get display name for a filter type
+    /**
+     * Gets the display name for a filter type
+     */
     fun getFilterDisplayName(filterType: FilterType): String {
-        return filters.find { it.type == filterType }?.displayName ?: filterType.toString()
+        return filterStore.getFilter(filterType).displayName
     }
 
-    // Get min and max values for a filter type
-    fun getFilterRange(filterType: FilterType): Pair<Float, Float>? {
-        filters.find { it.type == filterType }?.let {
-            return Pair(it.minValue, it.maxValue)
-        }
-        return null
+    /**
+     * Gets the min and max values for a filter
+     */
+    fun getFilterRange(filterType: FilterType): Pair<Float, Float> {
+        val filter = filterStore.getFilter(filterType)
+        return Pair(filter.minValue, filter.maxValue)
     }
 
-
-    // Update the filter values LiveData map
-    private fun updateFilterValuesMap() {
-        val valuesMap = filters.associate { it.type to it.currentValue }
-        _filterValues.value = valuesMap
-    }
-
-    // Process the bitmap with current filters (debounced)
-    private fun processBitmap() {
+    /**
+     * Schedules filter processing with debouncing
+     */
+    private fun scheduleFilterProcessing() {
         pendingFilterRunnable?.let { handler.removeCallbacks(it) }
-
-        pendingFilterRunnable = Runnable {
-            applyFilters()
-        }
-
-        handler.postDelayed(pendingFilterRunnable!!, touchEventInterval)
+        pendingFilterRunnable = Runnable { applyFilters() }
+        handler.postDelayed(pendingFilterRunnable!!, FILTER_PROCESSING_DELAY)
     }
 
-    // Apply all active filters to the bitmap
+    /**
+     * Core function that generates filter group and applies it to the image
+     */
     private fun applyFilters() {
-        // Get only filters that should be applied
-        val activeFilters = filters.filter { it.shouldApply() }
+        val filterGroup = generateFilterGroup()
+        gpuImage.setFilter(filterGroup)
+        _modifiedBitmap.postValue(gpuImage.bitmapWithFilterApplied)
+    }
+
+    /**
+     * Generates a GPUImageFilterGroup based on current filter values
+     */
+    private fun generateFilterGroup(): GPUImageFilter {
+        val activeFilters = filterStore.getActiveFilters()
             .map { it.createGPUFilter() }
 
-        if (activeFilters.isNotEmpty()) {
-            val filterGroup = GPUImageFilterGroup()
-            activeFilters.forEach { filterGroup.addFilter(it) }
-            gpuImage.setFilter(filterGroup)
-
-            // Update modified bitmap
-            _modifiedBitmap.postValue(gpuImage.bitmapWithFilterApplied)
+        return if (activeFilters.isNotEmpty()) {
+            GPUImageFilterGroup().apply {
+                activeFilters.forEach { addFilter(it) }
+            }
         } else {
-            // No filters - just use original bitmap
-            _modifiedBitmap.postValue(_originalBitmap.value)
+            // Return an identity filter if no active filters
+            GPUImageFilter()
         }
     }
 
-    // Clean up resources when ViewModel is cleared
-    override fun onCleared() {
-        super.onCleared()
-        pendingFilterRunnable?.let { handler.removeCallbacks(it) }
+    /**
+     * Updates the filter values map for LiveData observers
+     */
+    private fun updateFilterValuesMap() {
+        val valuesMap = filterStore.getAllFilters()
+            .associate { it.type to it.currentValue }
+        _filterValues.value = valuesMap
     }
-
 
     /**
      * Converts a filter value to seekbar progress (0-100)
      */
     fun filterValueToProgress(filterType: FilterType, value: Float): Int {
-        val (min, max) = getFilterRange(filterType) ?: return 0
-        return ((value - min) / (max - min) * 100L).toInt()
+        val filter = filterStore.getFilter(filterType)
+        return ((value - filter.minValue) / (filter.maxValue - filter.minValue) * 100).toInt()
     }
 
     /**
      * Converts seekbar progress (0-100) to a filter value
      */
     fun progressToFilterValue(filterType: FilterType, progress: Int): Float {
-        val (min, max) = getFilterRange(filterType) ?: return 0f
-        return min + (progress / 100f) * (max - min)
+        val filter = filterStore.getFilter(filterType)
+        return filter.minValue + (progress / 100f) * (filter.maxValue - filter.minValue)
     }
 
     /**
-     * Gets the appropriate suffix for the filter value display
+     * Gets the appropriate suffix for filter value display
      */
     fun getFilterValueSuffix(filterType: FilterType): String {
         return when (filterType) {
@@ -175,4 +186,32 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         return "$progress${getFilterValueSuffix(filterType)}"
     }
 
+    /**
+     * Clean up resources when ViewModel is cleared
+     */
+    override fun onCleared() {
+        super.onCleared()
+        pendingFilterRunnable?.let { handler.removeCallbacks(it) }
+    }
+
+    /**
+     * Inner class that manages filter state
+     */
+    private inner class FilterStore {
+        private val filters: Map<FilterType, Filter> = FilterType.values()
+            .associateWith { FilterFactory.createFilter(it) }
+
+        fun getFilter(type: FilterType): Filter = filters[type]!!
+
+        fun getAllFilters(): List<Filter> = filters.values.toList()
+
+        fun getActiveFilters(): List<Filter> =
+            filters.values.filter { it.shouldApply() }
+
+        fun resetAllFilters() {
+            filters.values.forEach { filter ->
+                filter.currentValue = filter.defaultValue
+            }
+        }
+    }
 }
