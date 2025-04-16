@@ -8,9 +8,13 @@ Whether you're a casual user looking to enhance your photos or a developer eager
 <img src="https://github.com/user-attachments/assets/6730f90a-d450-401a-9ead-9ffef5fc04e4" width="250"></img>
 <img src="https://github.com/user-attachments/assets/7e8f8911-1144-4a79-bb94-12497d500de1" width="250"></img>
 
+<img src="https://github.com/user-attachments/assets/ea69b5db-34dd-4d2d-8092-2b1d464eedeb" width="250"></img>
+<img src="https://github.com/user-attachments/assets/cc7dd897-f1ce-4c2d-9c8a-7aef722a41c6" width="250"></img>
+<img src="https://github.com/user-attachments/assets/6b8fb7a3-b9ae-4586-b52f-fb8fde89f857" width="250"></img>
 
 
----
+
+<br>
 
 ## ✨ Features
 
