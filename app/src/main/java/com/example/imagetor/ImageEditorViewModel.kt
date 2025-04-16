@@ -214,4 +214,141 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
     }
+
+    // Add these to your ImageEditorViewModel class
+
+    /**
+     * Applies horizontal flip to the current image
+     */
+    fun flipImageHorizontally() {
+        _originalBitmap.value?.let { bitmap ->
+            val matrix = android.graphics.Matrix()
+            matrix.preScale(-1.0f, 1.0f)
+
+            val flippedBitmap = Bitmap.createBitmap(
+                bitmap,
+                0, 0,
+                bitmap.width, bitmap.height,
+                matrix, true
+            )
+
+            // Update original bitmap with the flipped one
+            _originalBitmap.value = flippedBitmap
+            gpuImage.setImage(flippedBitmap)
+            applyFilters()
+        }
+    }
+
+    /**
+     * Applies vertical flip to the current image
+     */
+    fun flipImageVertically() {
+        _originalBitmap.value?.let { bitmap ->
+            val matrix = android.graphics.Matrix()
+            matrix.preScale(1.0f, -1.0f)
+
+            val flippedBitmap = Bitmap.createBitmap(
+                bitmap,
+                0, 0,
+                bitmap.width, bitmap.height,
+                matrix, true
+            )
+
+            // Update original bitmap with the flipped one
+            _originalBitmap.value = flippedBitmap
+            gpuImage.setImage(flippedBitmap)
+            applyFilters()
+        }
+    }
+
+    /**
+     * Applies a grain effect to the image
+     * @param intensity Float value between 0.0 and 1.0
+     */
+    fun applyGrainEffect(intensity: Float) {
+        // Get current modified bitmap
+        val currentBitmap = _modifiedBitmap.value ?: return
+
+        // Create a new bitmap with the same dimensions
+        val resultBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(resultBitmap)
+
+        // Draw the original bitmap
+        canvas.drawBitmap(currentBitmap, 0f, 0f, null)
+
+        // Create paint for grain
+        val paint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.FILL
+        }
+
+        // Generate random noise
+        val random = java.util.Random()
+        for (x in 0 until currentBitmap.width) {
+            for (y in 0 until currentBitmap.height) {
+                if (random.nextFloat() < 0.1f * intensity) {
+                    // Apply grain with random color and intensity
+                    val noiseColor = if (random.nextBoolean()) {
+                        android.graphics.Color.argb(
+                            (50 * intensity).toInt(),
+                            255, 255, 255
+                        )
+                    } else {
+                        android.graphics.Color.argb(
+                            (50 * intensity).toInt(),
+                            0, 0, 0
+                        )
+                    }
+
+                    paint.color = noiseColor
+                    canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
+                }
+            }
+        }
+
+        // Update the modified bitmap with grain effect
+        _modifiedBitmap.value = resultBitmap
+    }
+
+    /**
+     * Applies a blur effect to the image
+     * @param radius The blur radius (1.0 for light blur, higher values for stronger blur)
+     */
+    fun applyBlurEffect(radius: Float) {
+        // Get current bitmap (either modified or original)
+        val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return
+
+        // Create a RenderScript context
+        val rs = android.renderscript.RenderScript.create(getApplication())
+
+        try {
+            // Create allocation for input and output
+            val input = android.renderscript.Allocation.createFromBitmap(
+                rs, currentBitmap,
+                android.renderscript.Allocation.MipmapControl.MIPMAP_NONE,
+                android.renderscript.Allocation.USAGE_SCRIPT
+            )
+
+            val output = android.renderscript.Allocation.createTyped(rs, input.type)
+
+            // Create blur script and set parameters
+            val blurScript = android.renderscript.ScriptIntrinsicBlur.create(rs, android.renderscript.Element.U8_4(rs))
+            blurScript.setRadius(radius)
+            blurScript.setInput(input)
+
+            // Execute the script and copy the result
+            blurScript.forEach(output)
+
+            // Create output bitmap
+            val blurredBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, currentBitmap.config!!)
+            output.copyTo(blurredBitmap)
+
+            // Update the modified bitmap
+            _modifiedBitmap.value = blurredBitmap
+
+        } finally {
+            // Clean up RenderScript resources
+            rs.destroy()
+        }
+    }
 }

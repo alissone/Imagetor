@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_file"
+        android:icon="@drawable/baseline_folder_24"
+        android:title="File" />
+
+    <item
+        android:id="@+id/nav_adjust"
+        android:icon="@drawable/baseline_adjust_24"
+        android:title="Adjust" />
+
+    <item
+        android:id="@+id/nav_crop"
+        android:icon="@drawable/baseline_crop_24"
+        android:title="Crop" />
+
+    <item
+        android:id="@+id/nav_effects"
+        android:icon="@drawable/baseline_border_left_24"
+        android:title="Effects" />
+
+    <item
+        android:id="@+id/nav_presets"
+        android:icon="@drawable/baseline_border_style_24"
+        android:title="Presets" />
+</menu>

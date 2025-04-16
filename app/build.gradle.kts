@@ -50,4 +50,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("jp.co.cyberagent.android:gpuimage:2.1.0")
+//    implementation("it.sephiroth.android.library.targettooltip:target-tooltip-library:2.0.5")
 }

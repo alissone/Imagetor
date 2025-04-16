@@ -3,7 +3,7 @@ import android.graphics.PointF
 import jp.co.cyberagent.android.gpuimage.filter.*
 
 enum class FilterType {
-    BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE, GAMMA, VIGNETTE, VIBRANCE
+    BRIGHTNESS, CONTRAST, SATURATION, HUE, SHADOW, WHITE_BALANCE, GAMMA, VIGNETTE, VIBRANCE, SHARPEN
 }
 
 // Core filter interface that all filters must implement
@@ -31,6 +31,7 @@ object FilterFactory {
             FilterType.GAMMA -> GammaFilter()
             FilterType.VIGNETTE -> VignetteFilter()
             FilterType.VIBRANCE -> VibranceFilter()
+            FilterType.SHARPEN -> SharpenFilter()
         }
     }
 
@@ -39,6 +40,7 @@ object FilterFactory {
         return FilterType.values().map { createFilter(it) }
     }
 }
+
 
 // Individual filter implementations
 class BrightnessFilter : Filter {
@@ -153,3 +155,27 @@ class VibranceFilter : Filter {
 
     override fun createGPUFilter() = GPUImageVibranceFilter(currentValue)
 }
+
+class SharpenFilter : Filter {
+    override val type = FilterType.SHARPEN
+    override var currentValue = 0f
+    override val defaultValue = 0f
+    override val minValue = 0f
+    override val maxValue = 2f
+    override val displayName = "Sharpen"
+
+    override fun createGPUFilter() = GPUImageSharpenFilter(currentValue)
+}
+
+/**
+ * Data class representing a subcategory item in the filter bar
+ *
+ * @param name The display name of the subcategory
+ * @param iconResId The resource ID for the icon to display
+ * @param action The lambda to execute when this subcategory is clicked
+ */
+data class SubcategoryItem(
+    val name: String,
+    val iconResId: Int,
+    val action: () -> Unit
+)
