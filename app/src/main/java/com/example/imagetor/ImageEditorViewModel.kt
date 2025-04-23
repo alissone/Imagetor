@@ -35,6 +35,14 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     private val handler = Handler(Looper.getMainLooper())
     private var pendingFilterRunnable: Runnable? = null
 
+    // Instance of FilterManager
+    private val bitmapFilterManager = BitmapFilterManager()
+
+    init {
+        bitmapFilterManager.registerFilter(CustomBrightnessFilter())
+        // Add other custom filters here
+    }
+
     /**
      * Sets the original bitmap and applies initial filters
      */
@@ -56,9 +64,47 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
      */
     fun resetFilters() {
         filterStore.resetAllFilters()
+        bitmapFilterManager.resetAllFilters()
         updateFilterValuesMap()
         applyFilters()
     }
+
+    // Get all filter types (both GPU and custom)
+    fun getAllFilterTypes(): List<FilterInfo> {
+        val gpuFilters = getFilterTypes().map {
+            FilterInfo(it.name, "gpu", getFilterDisplayName(it))
+        }
+
+        val bitmapFilters = getBitmapFilterTypes().map {
+            FilterInfo(it, "bitmap", getBitmapFilterDisplayName(it))
+        }
+
+        return gpuFilters + bitmapFilters
+    }
+
+    // Get filter value regardless of type
+    fun getFilterValueByInfo(info: FilterInfo): Float {
+        return when (info.category) {
+            "gpu" -> getFilterValue(FilterType.valueOf(info.id))
+            "bitmap" -> getBitmapFilterValue(info.id)
+            else -> 0f
+        }
+    }
+
+    // Update filter value regardless of type
+    fun updateFilterByInfo(info: FilterInfo, value: Float) {
+        when (info.category) {
+            "gpu" -> updateFilter(FilterType.valueOf(info.id), value)
+            "bitmap" -> updateBitmapFilter(info.id, value)
+        }
+    }
+
+    // Data class to represent filter info for UI
+    data class FilterInfo(
+        val id: String,          // Filter type ID (enum name or custom string)
+        val category: String,    // "gpu" or "bitmap"
+        val displayName: String  // User-friendly name
+    )
 
     /**
      * Updates a specific filter with a new value
@@ -108,6 +154,14 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         return Pair(filter.minValue, filter.maxValue)
     }
 
+    fun getFilterRangeByInfo(info: FilterInfo): Pair<Float, Float> {
+        return when (info.category) {
+            "gpu" -> getFilterRange(FilterType.valueOf(info.id))
+            "bitmap" -> getBitmapFilterRange(info.id)
+            else -> Pair(0f, 1f)
+        }
+    }
+
     /**
      * Schedules filter processing with debouncing
      */
@@ -121,10 +175,41 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
      * Core function that generates filter group and applies it to the image
      */
     private fun applyFilters() {
+        // First apply GPUImage filters
         val filterGroup = generateFilterGroup()
         gpuImage.setFilter(filterGroup)
-        _modifiedBitmap.postValue(gpuImage.bitmapWithFilterApplied)
+        var resultBitmap = gpuImage.bitmapWithFilterApplied
+
+        // Then apply custom bitmap filters
+        resultBitmap = bitmapFilterManager.applyFilters(resultBitmap)
+
+        // Update the modified bitmap
+        _modifiedBitmap.postValue(resultBitmap)
     }
+
+    fun getBitmapFilterTypes(): List<String> {
+        return bitmapFilterManager.getAllFilters().map { it.type }
+    }
+
+    fun updateBitmapFilter(type: String, value: Float) {
+        val filter = bitmapFilterManager.getFilter(type) ?: return
+        filter.currentValue = value.coerceIn(filter.minValue, filter.maxValue)
+        scheduleFilterProcessing()
+    }
+
+    fun getBitmapFilterValue(type: String): Float {
+        return bitmapFilterManager.getFilter(type)?.currentValue ?: 0f
+    }
+
+    fun getBitmapFilterDisplayName(type: String): String {
+        return bitmapFilterManager.getFilter(type)?.displayName ?: "Unknown"
+    }
+
+    fun getBitmapFilterRange(type: String): Pair<Float, Float> {
+        val filter = bitmapFilterManager.getFilter(type) ?: return Pair(0f, 1f)
+        return Pair(filter.minValue, filter.maxValue)
+    }
+
 
     /**
      * Generates a GPUImageFilterGroup based on current filter values

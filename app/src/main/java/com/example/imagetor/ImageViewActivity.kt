@@ -67,6 +67,9 @@ class ImageViewActivity : AppCompatActivity() {
     private val MIN_SWIPE_DISTANCE_V = 140f // Min. Distance to swipe to change filter, vertically
     private val PROGRESS_STEPS_SIZE = 1 // Percentage that increases/decreases per pixel when swiping left/right
 
+
+    private var currentAvailableFilters = listOf<ImageEditorViewModel.FilterInfo>()
+
     // Filter category subcategories
     private val categorySubcategories = mapOf<String,List<SubcategoryItem>>(
         "file" to listOf(
@@ -373,21 +376,40 @@ class ImageViewActivity : AppCompatActivity() {
         handler.postDelayed(hidePopupRunnable!!, POPUP_HIDE_DELAY)
     }
 
-    private fun updateFilterControls(currentOptionIndex: Int) {
-        val filterTypes = imageEditorViewModel.getFilterTypes()
-        if (currentOptionIndex in filterTypes.indices) {
-            val currentFilterType = filterTypes[currentOptionIndex]
-            val value = imageEditorViewModel.getFilterValue(currentFilterType)
+ private fun updateFilterControls(currentOptionIndex: Int) {
+    if (currentAvailableFilters.isEmpty() || currentOptionIndex >= currentAvailableFilters.size) return
 
-            // Convert to progress
-            val progress = imageEditorViewModel.filterValueToProgress(currentFilterType, value)
+    val filterInfo = currentAvailableFilters[currentOptionIndex]
+    val value = imageEditorViewModel.getFilterValueByInfo(filterInfo)
 
-            // Update filter bar
-            filterSeekBar.progress = progress
-            filterValueLabel.text = imageEditorViewModel.getFilterValueDisplay(currentFilterType, value)
-            filterNameLabel.text = imageEditorViewModel.getFilterName(currentOptionIndex)
-        }
+    // Update filter bar
+    val range = imageEditorViewModel.getFilterRangeByInfo(filterInfo)
+    val progress = calculateProgress(value, range.first, range.second)
+
+    filterSeekBar.progress = progress
+    filterValueLabel.text = formatValueForDisplay(value, filterInfo)
+    filterNameLabel.text = filterInfo.displayName
+}
+
+// Helper to calculate progress percentage
+private fun calculateProgress(value: Float, min: Float, max: Float): Int {
+    return ((value - min) / (max - min) * 100).toInt()
+}
+
+private fun formatValueForDisplay(value: Float, filterInfo: ImageEditorViewModel.FilterInfo): String {
+    val progress = calculateProgress(
+        value,
+        imageEditorViewModel.getFilterRangeByInfo(filterInfo).first,
+        imageEditorViewModel.getFilterRangeByInfo(filterInfo).second
+    )
+
+    val suffix = when {
+        filterInfo.id == "HUE" -> "°"
+        else -> "%"
     }
+
+    return "$progress$suffix"
+}
 
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
@@ -429,6 +451,7 @@ class ImageViewActivity : AppCompatActivity() {
             shareImage(bitmap)
         } ?: Toast.makeText(this, "No image to share", Toast.LENGTH_SHORT).show()
     }
+
 
     // For FlipImage() function in ImageViewActivity.kt
     private fun flipImage() {
@@ -611,8 +634,35 @@ class ImageViewActivity : AppCompatActivity() {
 
     // Function stub for setting filter group
     private fun setFilterGroup(groupName: String) {
-        Toast.makeText(this, "Changing to $groupName filters", Toast.LENGTH_SHORT).show()
-        // Implementation would go here - update available filters based on the group
+        // This will be called when user selects a subcategory like "Light", "Color", etc.
+
+        // Get appropriate filters for this category
+        val filtersForGroup = when(groupName) {
+            "light" -> imageEditorViewModel.getAllFilterTypes().filter {
+                it.id in listOf("BRIGHTNESS", "CONTRAST", "SHADOW", "CUSTOM_BRIGHTNESS")
+            }
+            "effects" -> imageEditorViewModel.getAllFilterTypes().filter {
+                it.id in listOf("VIGNETTE", "CUSTOM_GRAIN")
+            }
+            "color" -> imageEditorViewModel.getAllFilterTypes().filter {
+                it.id in listOf("SATURATION", "HUE", "VIBRANCE", "WHITE_BALANCE")
+            }
+            "detail" -> imageEditorViewModel.getAllFilterTypes().filter {
+                it.id in listOf("SHARPEN", "GAMMA")
+            }
+            else -> imageEditorViewModel.getAllFilterTypes()
+        }
+
+        // Update the available filters in the UI
+        currentAvailableFilters = filtersForGroup
+        currentOption = 0 // Reset to first filter in the group
+
+        // Update the filter controls with the first filter in this group
+        if (filtersForGroup.isNotEmpty()) {
+            updateFilterControls(0)
+        }
+
+        Toast.makeText(this, "Changed to $groupName filters", Toast.LENGTH_SHORT).show()
     }
 
     // Function stubs for crop operations
