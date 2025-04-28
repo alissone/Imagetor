@@ -681,8 +681,4 @@ class ImageViewActivity : AppCompatActivity() {
         // e.g., imageEditorViewModel.rotateImage(90f)
         Toast.makeText(this, "Rotate feature not implemented", Toast.LENGTH_SHORT).show()
     }
-
-    // Removed applySharpen as it's now handled by selecting "Detail" -> "Sharpen"
-    // Removed formatValueForDisplay - ViewModel now provides formatted string
-    // Removed calculateProgress - ViewModel handles progress calculation
 }

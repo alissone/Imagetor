@@ -2,19 +2,14 @@ package com.example.imagetor
 
 import android.app.Application
 import android.graphics.Bitmap
-import android.graphics.PointF
-import android.os.Handler
-import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import android.os.Handler
+import android.os.Looper
+import com.example.imagetor.filters.ImageOperations
 import jp.co.cyberagent.android.gpuimage.GPUImage
 import jp.co.cyberagent.android.gpuimage.filter.*
-
-// Assume BitmapFilter and CustomBrightnessFilter definitions are available
-// (Needed for BitmapFilterManager part)
-// abstract class BitmapFilter { ... }
-// class CustomBrightnessFilter : BitmapFilter() { ... }
 
 private const val FILTER_PROCESSING_DELAY = 100L
 
@@ -40,6 +35,9 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
 
     // Filter store - maintains all filter states (GPU filters)
     private val filterStore = FilterStore()
+
+    // Image operations handler
+    private val imageOperations = ImageOperations(application)
 
     // Handler for debouncing filter processing
     private val handler = Handler(Looper.getMainLooper())
@@ -350,72 +348,37 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Existing Action Methods (Flip, Grain, Blur) ---
+    // --- Image Operation Methods (Now using ImageOperations class) ---
 
     fun flipImageHorizontally() {
         _originalBitmap.value?.let { bitmap ->
-            val matrix = android.graphics.Matrix()
-            matrix.preScale(-1.0f, 1.0f)
-            val flippedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            val flippedBitmap = imageOperations.flipHorizontally(bitmap)
             // Update original bitmap and re-apply filters
-            _originalBitmap.value = flippedBitmap // This changes the base image for subsequent filter applications
+            _originalBitmap.value = flippedBitmap
             gpuImage.setImage(flippedBitmap)
-            applyFilters() // Apply current filter state to the newly flipped base image
+            applyFilters()
         }
     }
 
     fun flipImageVertically() {
         _originalBitmap.value?.let { bitmap ->
-            val matrix = android.graphics.Matrix()
-            matrix.preScale(1.0f, -1.0f)
-            val flippedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            val flippedBitmap = imageOperations.flipVertically(bitmap)
             // Update original bitmap and re-apply filters
-            _originalBitmap.value = flippedBitmap // This changes the base image
+            _originalBitmap.value = flippedBitmap
             gpuImage.setImage(flippedBitmap)
-            applyFilters() // Apply current filter state to the newly flipped base image
+            applyFilters()
         }
     }
 
     fun applyGrainEffect(intensity: Float) {
-        val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return // Apply on modified or original
-        val resultBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(resultBitmap)
-        canvas.drawBitmap(currentBitmap, 0f, 0f, null)
-        val paint = android.graphics.Paint().apply {
-            isAntiAlias = true
-            style = android.graphics.Paint.Style.FILL
-        }
-        val random = java.util.Random()
-        // Simplified grain logic placeholder
-        for (i in 0 until (currentBitmap.width * currentBitmap.height * intensity * 0.1).toInt()) {
-            val x = random.nextInt(currentBitmap.width).toFloat()
-            val y = random.nextInt(currentBitmap.height).toFloat()
-            paint.color = if(random.nextBoolean()) android.graphics.Color.argb(50, 255, 255, 255) else android.graphics.Color.argb(50, 0, 0, 0)
-            canvas.drawPoint(x, y, paint)
-        }
-        _modifiedBitmap.postValue(resultBitmap) // Update LiveData
+        val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return
+        val resultBitmap = imageOperations.applyGrain(currentBitmap, intensity)
+        _modifiedBitmap.postValue(resultBitmap)
     }
 
     fun applyBlurEffect(radius: Float) {
         val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return
-        // Consider replacing RenderScript with GPUImageGaussianBlurFilter or another method
-        val rs = android.renderscript.RenderScript.create(getApplication())
-        try {
-            val input = android.renderscript.Allocation.createFromBitmap(rs, currentBitmap)
-            val output = android.renderscript.Allocation.createTyped(rs, input.type)
-            val blurScript = android.renderscript.ScriptIntrinsicBlur.create(rs, android.renderscript.Element.U8_4(rs))
-            blurScript.setRadius(radius.coerceIn(0.1f, 25f)) // Clamp radius for RenderScript
-            blurScript.setInput(input)
-            blurScript.forEach(output)
-            val blurredBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, currentBitmap.config!!)
-            output.copyTo(blurredBitmap)
-            _modifiedBitmap.postValue(blurredBitmap) // Update LiveData
-        } catch (e: Exception) {
-            System.err.println("Error applying blur: ${e.message}")
-            // Optionally post the original bitmap back or handle error
-        }
-        finally {
-            rs.destroy()
-        }
+        val blurredBitmap = imageOperations.applyBlur(currentBitmap, radius)
+        _modifiedBitmap.postValue(blurredBitmap)
     }
 }
