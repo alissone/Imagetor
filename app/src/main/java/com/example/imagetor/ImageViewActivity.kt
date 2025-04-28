@@ -11,11 +11,9 @@ import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.*
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog // Keep AlertDialog for Flip
 import androidx.appcompat.app.AppCompatActivity
@@ -108,7 +106,8 @@ class ImageViewActivity : AppCompatActivity() {
         "crop" to listOf(
             SubcategoryItem("Crop", R.drawable.baseline_crop_24) { showCropOptions() }, // Stub
             SubcategoryItem("Rotate", R.drawable.baseline_crop_rotate_24) { rotateImage() }, // Stub
-            SubcategoryItem("Flip", R.drawable.baseline_flip_24) { showFlipOptions() } // Calls VM flip
+            SubcategoryItem("Flip V", R.drawable.baseline_flip_24) { showFlipOptions(false) },
+            SubcategoryItem("Flip H", R.drawable.baseline_flip_24) { showFlipOptions(true) }
         ),
         "effects" to listOf(
             // Keep Grain and Blur as separate actions for now (Option 1)
@@ -545,7 +544,11 @@ class ImageViewActivity : AppCompatActivity() {
     }
 
     // Refactored flip to show dialog first
-    private fun showFlipOptions() {
+    private fun showFlipOptions(horizontal: Boolean?) {
+        if (horizontal != null) {
+            if (horizontal) imageEditorViewModel.flipImageHorizontally() else imageEditorViewModel.flipImageVertically()
+            return
+        }
         imageEditorViewModel.originalBitmap.value?.let { // Check if there's an image to flip
             val options = arrayOf("Horizontal Flip", "Vertical Flip")
             AlertDialog.Builder(this)
