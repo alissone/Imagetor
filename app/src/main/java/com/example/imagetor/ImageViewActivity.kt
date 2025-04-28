@@ -246,9 +246,8 @@ class ImageViewActivity : AppCompatActivity() {
             modifiedImageView.setImageBitmap(bitmap)
         }
 
-        // Observe the map of all filter values.
-        // When any value changes, update the UI *if* the changed filter is the currently displayed one.
-        imageEditorViewModel.filterValues.observe(this) { filterValueMap ->
+        // Change this to observe filterValuesById instead of filterValues
+        imageEditorViewModel.filterValuesById.observe(this) { filterValueMap ->
             filterCategories.currentFilter?.let { currentFilterInfo ->
                 filterValueMap[currentFilterInfo.id]?.let { newValue ->
                     // Update the UI elements for the current filter if its value changed
@@ -321,7 +320,8 @@ class ImageViewActivity : AppCompatActivity() {
                     // Schedule long press to show popup
                     view.postDelayed({
                         // Check if finger is still down (or hasn't moved much)
-                        if (!isPopupShown && view.isPressed) { // Check isPressed state
+//                        if (!isPopupShown && view.isPressed) { // Check isPressed state
+                            if (!isPopupShown) { // Check isPressed state
                             filterCategories.currentFilter?.let { // Only show if there's a current filter
                                 showOptionsPopup(it)
                             }
@@ -334,10 +334,18 @@ class ImageViewActivity : AppCompatActivity() {
                     if (isPopupShown) {
                         val deltaX = event.x - startX
                         val deltaY = event.y - startY
+                        print("MOVING! $deltaX $deltaY")
 
                         // Vertical swipe: Change filter
                         if (abs(deltaY) > MIN_SWIPE_DISTANCE_V) {
-                            if (deltaY > 0) filterCategories.nextFilter() else filterCategories.previousFilter()
+                            if (deltaY > 0) {
+                                filterCategories.nextFilter()
+                                updateFilterControls() // Update UI for the new current filter
+                            } else {
+                                filterCategories.previousFilter()
+                                updateFilterControls() // Update UI for the new current filter
+                            }
+
                             filterCategories.currentFilter?.let { updateOptionDisplay(it) } // Update popup content
                             startY = event.y // Reset Y threshold
                             startX = event.x // Reset X threshold to prevent value change on filter switch

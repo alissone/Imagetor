@@ -2,7 +2,7 @@ package com.example.imagetor
 
 import android.app.Application
 import android.graphics.Bitmap
-import android.graphics.PointF // Keep this if Vignette uses it
+import android.graphics.PointF
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
@@ -27,10 +27,13 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     private val _modifiedBitmap = MutableLiveData<Bitmap?>()
     val modifiedBitmap: LiveData<Bitmap?> = _modifiedBitmap
 
-    // Changed Map key from FilterType to String (FilterInfo.id) for consistency
-    // This holds the current *values* keyed by unique filter ID
-    private val _filterValues = MutableLiveData<Map<String, Float>>()
-    val filterValues: LiveData<Map<String, Float>> = _filterValues
+    // Keep both LiveData objects for compatibility
+    private val _filterValuesOld = MutableLiveData<Map<FilterType, Float>>()
+    val filterValues: LiveData<Map<FilterType, Float>> = _filterValuesOld
+
+    // New map for string keys
+    private val _filterValuesNew = MutableLiveData<Map<String, Float>>()
+    val filterValuesById: LiveData<Map<String, Float>> = _filterValuesNew
 
     // GPUImage instance for image processing
     private val gpuImage = GPUImage(application)
@@ -61,9 +64,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         // Bitmap Filters (using their 'type' strings - ensure these match your BitmapFilter types)
         "CUSTOM_BRIGHTNESS" to "light" // Example ID
         // Add other custom filters and their groups here
-        // Grain and Blur are currently handled by separate functions.
-        // To integrate them fully, create BitmapFilter implementations for them,
-        // register them in bitmapFilterManager, and add them to this map (e.g., group "effects").
     )
 
     init {
@@ -82,8 +82,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         resetFilters() // This also calls applyFilters and updateFilterValuesMap
         // Set the image *after* resetting filters if GPUImage holds state
         gpuImage.setImage(bitmap)
-        // Explicitly apply filter state to the new image (resetFilters already calls applyFilters)
-        // applyFilters() // Redundant if resetFilters calls it
     }
 
     /**
@@ -218,8 +216,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     private fun applyFilters() {
         _originalBitmap.value?.let { original ->
             // Make sure GPUImage has the latest original bitmap
-            // This might be inefficient if the original hasn't changed,
-            // but safer if operations like flip modify the base image.
             gpuImage.setImage(original)
 
             // First apply GPUImage filters
@@ -233,7 +229,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
                 original
             }
 
-
             // Then apply custom bitmap filters if GPU step succeeded
             if (resultBitmap != null) {
                 resultBitmap = bitmapFilterManager.applyFilters(resultBitmap)
@@ -241,7 +236,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
                 // Handle case where GPU filtering failed
                 resultBitmap = original // Fallback
             }
-
 
             // Update the modified bitmap LiveData
             _modifiedBitmap.postValue(resultBitmap)
@@ -269,17 +263,22 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     // --- LiveData Update ---
 
     /**
-     * Updates the filter values map for LiveData observers.
-     * Keyed by the unique filter ID (String).
+     * Updates both filter values maps (old and new) for LiveData observers
      */
     private fun updateFilterValuesMap() {
+        // Update old map (FilterType -> Float)
+        val oldMap = filterStore.getAllFilters()
+            .associate { it.type to it.currentValue }
+        _filterValuesOld.value = oldMap
+
+        // Update new map (String -> Float)
         val gpuValues = filterStore.getAllFilters()
             .associate { it.type.name to it.currentValue }
         val bitmapValues = bitmapFilterManager.getAllFilters()
             .associate { it.type to it.currentValue }
 
         // Merge the two maps
-        _filterValues.value = gpuValues + bitmapValues
+        _filterValuesNew.value = gpuValues + bitmapValues
     }
 
     // --- UI Helper Methods (Value Conversion, Display Formatting) ---
@@ -330,8 +329,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     override fun onCleared() {
         super.onCleared()
         pendingFilterRunnable?.let { handler.removeCallbacks(it) }
-        // Potentially destroy GPUImage resources if needed
-        // gpuImage.deleteImage() // Example if cleanup method exists
     }
 
     /**
@@ -354,8 +351,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     // --- Existing Action Methods (Flip, Grain, Blur) ---
-    // Kept separate as per simplification decision (Option 1).
-    // To integrate fully (Option 2), these would be replaced by BitmapFilters.
 
     fun flipImageHorizontally() {
         _originalBitmap.value?.let { bitmap ->
@@ -381,13 +376,15 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // Kept as is for now. Option 2: Create a BitmapFilter for Grain.
     fun applyGrainEffect(intensity: Float) {
         val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return // Apply on modified or original
         val resultBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(resultBitmap)
         canvas.drawBitmap(currentBitmap, 0f, 0f, null)
-        val paint = android.graphics.Paint().apply { /*...*/ }
+        val paint = android.graphics.Paint().apply {
+            isAntiAlias = true
+            style = android.graphics.Paint.Style.FILL
+        }
         val random = java.util.Random()
         // Simplified grain logic placeholder
         for (i in 0 until (currentBitmap.width * currentBitmap.height * intensity * 0.1).toInt()) {
@@ -399,8 +396,6 @@ class ImageEditorViewModel(application: Application) : AndroidViewModel(applicat
         _modifiedBitmap.postValue(resultBitmap) // Update LiveData
     }
 
-    // Kept as is for now. Option 2: Create a BitmapFilter for Blur or use GPUImageGaussianBlurFilter.
-    // Remember RenderScript is deprecated.
     fun applyBlurEffect(radius: Float) {
         val currentBitmap = _modifiedBitmap.value ?: _originalBitmap.value ?: return
         // Consider replacing RenderScript with GPUImageGaussianBlurFilter or another method
